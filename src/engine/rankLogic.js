@@ -34,7 +34,7 @@ export function checkRank(rank, totalLeftMan, totalRightMan, bodyPvMan) {
 }
 
 export function getTargetByRank(rank) {
-  if (rank === 'SSM') return { left: 150, right: 110, bodyPv: 40 } // 만 단위
-  if (rank === 'SM')  return { left: 250, right: 210, bodyPv: 40 }
+  if (rank === 'SSM') return { left: 150, right: 150, bodyPv: 0 } // 만 단위
+  if (rank === 'SM')  return { left: 250, right: 250, bodyPv: 0 }
   return { left: 0, right: 0, bodyPv: 0 }
 }
