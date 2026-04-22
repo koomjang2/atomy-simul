@@ -85,9 +85,16 @@ function scatterSmallChunks(sched, workdays, usedDates, amount, side) {
   }
 }
 
+function nextWorkday(anchorDate, workdays) {
+  for (const wd of workdays) {
+    if (wd.date > anchorDate) return wd.date
+  }
+  return null
+}
+
 // ─── 1단계: 좌/우 PV 기본 일정 ────────────────────────────────────
 
-function buildBaseSchedule(node, year, month, half, hasLeftSub, hasRightSub) {
+function buildBaseSchedule(node, year, month, half, hasLeftSub, hasRightSub, useTwoDayMatch = false) {
   const days = buildCalendar(year, month, half)
   const workdays = getWorkdays(days)
   const sched = Object.fromEntries(days.map((d) => [d.date, { leftPv: 0, rightPv: 0 }]))
@@ -111,12 +118,15 @@ function buildBaseSchedule(node, year, month, half, hasLeftSub, hasRightSub) {
       scatterSmallChunks(sched, workdays, usedBig, bigRem, bigSide)
     }
 
-    // 2) 작은 쪽: 큰 쪽이 배치된 날짜(앵커)에 우선 배치
+    // 2) 작은 쪽: 앵커 날짜(또는 다음 영업일)에 배치
     const anchorDates = Object.entries(sched)
       .filter(([, v]) => v[bigSide] > 0)
       .map(([k]) => Number(k))
       .sort((a, b) => a - b)
-    const smallPlaced = placeMixedChunks(sched, anchorDates, smallTarget, smallSide)
+    const targetDates = useTwoDayMatch
+      ? anchorDates.map((d) => nextWorkday(d, workdays) ?? d)
+      : anchorDates
+    const smallPlaced = placeMixedChunks(sched, targetDates, smallTarget, smallSide)
     const smallRem = smallTarget - smallPlaced
     if (smallRem > 0) {
       const usedSmall = Object.entries(sched).filter(([, v]) => v[smallSide] > 0).map(([k]) => k)
@@ -242,6 +252,24 @@ function optimizeBodyPv(allNodes) {
   return nodes
 }
 
+// ─── 이틀 매칭 적용 여부 판단 ───────────────────────────────────────
+
+function shouldUseTwoDayMatch(node, allNodes) {
+  const DM_RANKS = ['DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
+  let current = node
+  while (current.parentId != null) {
+    const parent = allNodes.find((n) => n.id === current.parentId)
+    if (!parent) break
+    if (DM_RANKS.includes(parent.rank)) {
+      const l = getLeftSubtree(parent.id, allNodes).length
+      const r = getRightSubtree(parent.id, allNodes).length
+      return l >= 2 || r >= 2
+    }
+    current = parent
+  }
+  return false
+}
+
 // ─── 진입점 ──────────────────────────────────────────────────────
 
 export function runOptimization(allNodes, year, month, half) {
@@ -251,9 +279,10 @@ export function runOptimization(allNodes, year, month, half) {
   for (const rank of schedulingOrder) {
     nodes = nodes.map((node) => {
       if (node.rank !== rank) return node
-      const hasLeftSub  = getLeftSubtree(node.id, nodes).length > 0
-      const hasRightSub = getRightSubtree(node.id, nodes).length > 0
-      return { ...node, days: buildBaseSchedule(node, year, month, half, hasLeftSub, hasRightSub) }
+      const hasLeftSub     = getLeftSubtree(node.id, nodes).length > 0
+      const hasRightSub    = getRightSubtree(node.id, nodes).length > 0
+      const useTwoDayMatch = shouldUseTwoDayMatch(node, nodes)
+      return { ...node, days: buildBaseSchedule(node, year, month, half, hasLeftSub, hasRightSub, useTwoDayMatch) }
     })
   }
 
