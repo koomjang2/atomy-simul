@@ -7,7 +7,7 @@
 **윈-윈 시나리오 직급표를 자동 생성**하는 웹앱.
 
 ## 기술 스택
-- Frontend: React + Vite (또는 vanilla HTML/CSS/JS)
+- Frontend: React + Vite
 - 스타일: Tailwind CSS
 - 상태관리: React useState / useReducer
 - 빌드: npm run build → 정적 파일 배포 가능

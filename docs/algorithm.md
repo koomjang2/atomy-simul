@@ -90,19 +90,25 @@ PROCESS:
 **수당 구간 테이블 (점수 계산 기준):**
 ```javascript
 const SCORE_TIERS = [
-  { threshold: 300_000,   score: 15  },  // 30만/30만
-  { threshold: 700_000,   score: 30  },  // 70만/70만
-  { threshold: 1_500_000, score: 60  },  // 150만/150만
-  { threshold: 2_400_000, score: 90  },  // 240만/240만
-  { threshold: 6_000_000, score: 150 },  // 600만/600만
-  { threshold: 20_000_000,score: 250 },  // 2000만/2000만
-  { threshold: 50_000_000,score: 300 },  // 5000만/5000만
+  { threshold: 300_000,    score: 15  },  // 30만/30만
+  { threshold: 700_000,    score: 30  },  // 70만/70만
+  { threshold: 1_500_000,  score: 60  },  // 150만/150만
+  { threshold: 2_400_000,  score: 90  },  // 240만/240만
+  { threshold: 6_000_000,  score: 150 },  // 600만/600만
+  { threshold: 20_000_000, score: 250 },  // 2000만/2000만
+  { threshold: 50_000_000, score: 300 },  // 5000만/5000만
 ];
 
-function getScore(leftPv, rightPv, bodyPv) {
-  const minPv = Math.min(leftPv, rightPv);
-  // 몸PV는 더 적은 쪽에 합산
-  const effectivePv = minPv; // bodyPv는 직급 달성 판단 시 합산
+// 몸PV 적용: 호출 전에 더 적은 쪽에 먼저 합산하고 나서 getScore에 전달
+// DM 이상은 bodyPv = 0 고정
+function applyBodyPv(leftPv, rightPv, bodyPv) {
+  if (bodyPv <= 0) return { effLeft: leftPv, effRight: rightPv };
+  return rightPv <= leftPv
+    ? { effLeft: leftPv, effRight: rightPv + bodyPv }
+    : { effLeft: leftPv + bodyPv, effRight: rightPv };
+}
+
+function getScore(leftPv, rightPv) {
   for (let i = SCORE_TIERS.length - 1; i >= 0; i--) {
     if (leftPv >= SCORE_TIERS[i].threshold && rightPv >= SCORE_TIERS[i].threshold) {
       return SCORE_TIERS[i].score;
