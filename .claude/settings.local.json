@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Read(//usr/local/**)",
+      "Read(//c/Users/koomj/.nvm/**)",
+      "Bash(powershell.exe -Command \"Get-Command npm\")",
+      "Bash(cmd.exe /c \"where npm\")",
+      "Bash(cmd.exe /c \"npm --version\")",
+      "Bash(cmd.exe /c \"where npm 2>&1 && npm --version 2>&1\")",
+      "Bash(powershell.exe -NoProfile -Command \"npm --version; node --version\")",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Read(//c/Users/koomj/AppData/Roaming/**)",
+      "Bash(npm --version)",
+      "Bash(powershell.exe -NoProfile -Command \"node --version; npm --version\")",
+      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
+      "Bash(npx create-vite@latest . --template react)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(npx.cmd vite *)",
+      "Bash(start npx.cmd vite --port 5173)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(git --version)",
+      "Bash(where gh *)",
+      "Bash(git config *)",
+      "Bash(winget --version)",
+      "Bash(gh auth *)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")"
+    ]
+  }
+}

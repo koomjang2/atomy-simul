@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>애터미 바이너리 마스터플랜 (실전 최적화 완성본)</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f4f7fa; color: #333; margin: 0; }
+        .container { background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 1400px; margin: 0 auto; }
+        h2 { color: #003370; text-align: center; margin-top: 0; font-weight: 900; letter-spacing: -1px; margin-bottom: 25px;}
+        
+        /* 설정 패널 */
+        .config-panel { background: #002b5e; color: white; padding: 20px; border-radius: 10px; margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; box-shadow: 0 4px 10px rgba(0,43,94,0.2); }
+        .config-title { font-size: 18px; font-weight: bold; width: 100%; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; }
+        .config-group { display: flex; align-items: center; gap: 10px; }
+        .config-group label { font-weight: bold; font-size: 14px; }
+        .config-panel select, .config-panel input { padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; font-weight: bold; color: #333; }
+
+        /* 조직도 (Tree) 디자인 */
+        .tree-section { background: #fdfdfd; border: 2px solid #e0e6ed; border-radius: 8px; padding: 30px 20px; margin-bottom: 30px; overflow-x: auto; }
+        .org-node { display: flex; flex-direction: column; align-items: center; margin: 0 10px; }
+        .node-box { background: #fff; border: 2px solid #28a745; border-radius: 8px; padding: 15px; width: 240px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.05); z-index: 2; position: relative; }
+        .node-box.upper-node { border-color: #d32f2f; background: #fffcfc; }
+        
+        /* 이름 입력란 강조 */
+        .name-input-wrapper { display: flex; align-items: center; justify-content: center; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .name-input-wrapper input { font-size: 16px; font-weight: 800; color: #003370; border: none; border-bottom: 2px dashed #ccc; width: 100px; text-align: center; background: transparent; transition: 0.3s; padding: 2px; }
+        .name-input-wrapper input:focus { outline: none; border-bottom-color: #0056b3; }
+        .rank-badge { font-size: 12px; font-weight: bold; background: #28a745; color: white; padding: 4px 8px; border-radius: 12px; margin-left: 8px; }
+        .upper-node .rank-badge { background: #d32f2f; }
+
+        .node-input { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; align-items: center; color: #555; font-weight: bold; }
+        .node-input input { width: 65px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: right; font-weight: bold; color: #d32f2f; }
+        
+        /* 하위 추가 액션 그룹 */
+        .node-actions { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .add-action { display: flex; gap: 5px; justify-content: center; }
+        .add-action select { font-size: 11px; padding: 4px; border-radius: 4px; border: 1px solid #adb5bd; font-weight: bold; }
+        .add-action button { font-size: 11px; padding: 5px 8px; cursor: pointer; border: none; border-radius: 4px; background: #e9ecef; color: #333; font-weight: bold; flex: 1; transition: 0.2s; }
+        .add-action button:hover { background: #ced4da; }
+        .btn-del { margin-top: 5px; color: white !important; background: #dc3545 !important; border: none; border-radius: 4px; padding: 6px; font-size: 12px; font-weight: bold; cursor: pointer; }
+        
+        .children-container { display: flex; justify-content: center; position: relative; margin-top: 25px; padding-top: 15px; }
+        .children-container::before { content: ''; position: absolute; top: 0; left: 25%; right: 25%; height: 2px; background: #bbb; }
+        .child-box { position: relative; display: flex; flex-direction: column; align-items: center; padding: 0 15px; }
+        .child-box::before { content: ''; position: absolute; top: -15px; left: 50%; width: 2px; height: 15px; background: #bbb; margin-left: -1px; }
+        .empty-node { border: 2px dashed #ccc; padding: 10px 20px; border-radius: 8px; color: #999; font-size: 12px; background: #fafafa; }
+
+        .execute-btn { width: 100%; padding: 18px; background-color: #00479d; color: white; border: none; border-radius: 8px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,71,157,0.3); margin-bottom: 30px; transition: 0.2s; }
+        .execute-btn:hover { background-color: #002b5e; }
+        
+        /* 결과 테이블 디자인 */
+        .result-section { display: flex; flex-direction: column; gap: 20px; }
+        .result-card { background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .result-title { font-size: 18px; font-weight: bold; color: #00479d; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
+        table { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; }
+        th, td { border: 1px solid #e0e0e0; padding: 10px 8px; }
+        th { background-color: #f8f9fa; font-weight: bold; }
+        .sunday { background-color: #fff5f5; color: #dc3545; }
+        .highlight { font-weight: bold; color: #0056b3; }
+        .summary-badge { background: #e8f4fd; padding: 10px; border-radius: 6px; display: inline-block; font-size: 14px; font-weight: bold; border: 1px solid #b8daff; color:#003370; }
+        .score-badge { background-color: #00479d; color: white; padding: 5px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .zero-input { color: #ccc; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎯 바이너리 조직 마스터플랜 (현장 실전형)</h2>
+    
+    <div class="config-panel">
+        <div class="config-title">⚙️ 최상위(나) 목표 설정</div>
+        
+        <div class="config-group">
+            <label for="targetRank">나의 목표 직급:</label>
+            <select id="targetRank" onchange="changeRootRank()">
+                <option value="DM" selected>다이아몬드마스터 (DM)</option>
+                <option value="SRM">샤론로즈마스터 (SRM)</option>
+                <option value="STM">스타마스터 (STM)</option>
+                <option value="RM">로열마스터 (RM)</option>
+            </select>
+        </div>
+
+        <div class="config-group">
+            <label for="planYear">연도:</label>
+            <input type="number" id="planYear" value="2026" style="width: 80px;"> 년
+        </div>
+
+        <div class="config-group">
+            <label for="planMonth">월:</label>
+            <input type="number" id="planMonth" value="4" min="1" max="12" style="width: 60px;"> 월
+        </div>
+
+        <div class="config-group">
+            <label for="planPeriod">차수 (기간):</label>
+            <select id="planPeriod">
+                <option value="first">상반기 (1일 ~ 15일)</option>
+                <option value="second" selected>하반기 (16일 ~ 말일)</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="tree-section" id="treeSection">
+        </div>
+
+    <button class="execute-btn" onclick="calculateMasterPlan()">전체 조직 마스터플랜 생성 (계산 실행)</button>
+
+    <div class="result-section" id="resultSection">
+        </div>
+</div>
+
+<script>
+    var workDays = [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15]; // 1~15일 기준 일요일(1,8,15 예시) 제외 배열
+    var pointTiers = [ { pv: 5000, pt: 300 }, { pv: 2000, pt: 250 }, { pv: 600, pt: 150 }, { pv: 240, pt: 90 }, { pv: 150, pt: 60 }, { pv: 70, pt: 30 }, { pv: 30, pt: 15 } ];
+    
+    var nextNodeId = 1;
+    var orgTree = {
+        id: 'node_0',
+        name: '성대진',
+        type: 'DM',
+        targetL: 0, targetR: 0, bodyPool: 0,
+        left: null, right: null
+    };
+
+    function changeRootRank() {
+        var sel = document.getElementById('targetRank');
+        orgTree.type = sel.value;
+        renderTree();
+    }
+
+    // 1. 조직도 렌더링 함수
+    function renderTree() {
+        var container = document.getElementById('treeSection');
+        container.innerHTML = buildTreeHTML(orgTree);
+    }
+
+    function buildTreeHTML(node) {
+        if (!node) return '';
+        var isUpper = node.type !== 'SM'; 
+        var html = '<div class="org-node">';
+        
+        html += '<div class="node-box ' + (isUpper ? 'upper-node' : '') + '">';
+        
+        // 직관적인 이름 입력칸
+        html += '<div class="name-input-wrapper">';
+        html += '<input type="text" value="' + node.name + '" onchange="updateData(\'' + node.id + '\', \'name\', this.value)" placeholder="이름 입력">';
+        html += '<span class="rank-badge">' + node.type + '</span>';
+        html += '</div>';
+        
+        // SM인 경우에만 목표 PV와 몸PV 풀 입력란 노출
+        if (!isUpper) {
+            html += '<div class="node-input"><label>좌측 목표(만):</label> <input type="number" value="' + node.targetL + '" onchange="updateData(\'' + node.id + '\', \'targetL\', this.value)"></div>';
+            html += '<div class="node-input"><label>우측 목표(만):</label> <input type="number" value="' + node.targetR + '" onchange="updateData(\'' + node.id + '\', \'targetR\', this.value)"></div>';
+            html += '<div class="node-input"><label>몸PV 풀(만):</label> <input type="number" value="' + node.bodyPool + '" onchange="updateData(\'' + node.id + '\', \'bodyPool\', this.value)"></div>';
+        }
+        
+        // 하위 노드 추가 액션부 (직급 선택 + 버튼)
+        html += '<div class="node-actions">';
+        if (!node.left) {
+            html += '<div class="add-action">';
+            html += '<select id="childRankL_' + node.id + '"><option value="SM">SM</option><option value="DM">DM</option><option value="SRM">SRM</option></select>';
+            html += '<button onclick="addChild(\'' + node.id + '\', \'left\')">+ 좌측 파트너</button>';
+            html += '</div>';
+        }
+        if (!node.right) {
+            html += '<div class="add-action">';
+            html += '<select id="childRankR_' + node.id + '"><option value="SM">SM</option><option value="DM">DM</option><option value="SRM">SRM</option></select>';
+            html += '<button onclick="addChild(\'' + node.id + '\', \'right\')">+ 우측 파트너</button>';
+            html += '</div>';
+        }
+        if (node.id !== 'node_0') {
+            html += '<button class="btn-del" onclick="removeNode(orgTree, \'' + node.id + '\')">이 파트너 삭제</button>';
+        }
+        html += '</div></div>'; // end node-box
+
+        if (node.left || node.right) {
+            html += '<div class="children-container">';
+            html += '<div class="child-box left-child">' + (node.left ? buildTreeHTML(node.left) : '<div class="empty-node">좌측 대기중</div>') + '</div>';
+            html += '<div class="child-box right-child">' + (node.right ? buildTreeHTML(node.right) : '<div class="empty-node">우측 대기중</div>') + '</div>';
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        return html;
+    }
+
+    function findNode(currentNode, id) {
+        if (!currentNode) return null;
+        if (currentNode.id === id) return currentNode;
+        var foundLeft = findNode(currentNode.left, id);
+        if (foundLeft) return foundLeft;
+        return findNode(currentNode.right, id);
+    }
+
+    function addChild(parentId, side) {
+        var parent = findNode(orgTree, parentId);
+        var selectElem = document.getElementById(side === 'left' ? 'childRankL_' + parentId : 'childRankR_' + parentId);
+        var rank = selectElem ? selectElem.value : 'SM';
+        
+        if (parent) {
+            parent[side] = {
+                id: 'node_' + nextNodeId++,
+                name: rank + ' 파트너',
+                type: rank,
+                targetL: rank === 'SM' ? 250 : 0,
+                targetR: rank === 'SM' ? 210 : 0,
+                bodyPool: rank === 'SM' ? 40 : 0,
+                left: null, right: null
+            };
+            renderTree();
+        }
+    }
+
+    function removeNode(currentNode, targetId) {
+        if (!currentNode) return false;
+        if (currentNode.left && currentNode.left.id === targetId) { currentNode.left = null; renderTree(); return true; }
+        if (currentNode.right && currentNode.right.id === targetId) { currentNode.right = null; renderTree(); return true; }
+        if (removeNode(currentNode.left, targetId)) return true;
+        if (removeNode(currentNode.right, targetId)) return true;
+        return false;
+    }
+
+    function updateData(nodeId, field, value) {
+        var node = findNode(orgTree, nodeId);
+        if (node) {
+            if (field === 'name') node.name = value;
+            else node[field] = parseInt(value) || 0;
+        }
+    }
+
+    // ==========================================
+    // 2. 스마트 상향식 코어 연산 알고리즘
+    // ==========================================
+    var resultData = []; 
+
+    function processNode(node) {
+        if (!node) return null;
+
+        var leftResult = processNode(node.left);
+        var rightResult = processNode(node.right);
+
+        var nodePlan = {
+            id: node.id, name: node.name, type: node.type,
+            dailyRollupL: {}, dailyRollupR: {},
+            dailyInjectL: {}, dailyInjectR: {}, dailyBodyInject: {},
+            totalGeneratedByMe: {}, ptsCount: 0, ptsSum: 0
+        };
+
+        var isUpper = node.type !== 'SM';
+
+        // 1. 하위에서 올라온 일일 롤업 취합
+        for (var d = 1; d <= 15; d++) {
+            nodePlan.dailyRollupL[d] = leftResult ? (leftResult.totalGeneratedByMe[d] || 0) : 0;
+            nodePlan.dailyRollupR[d] = rightResult ? (rightResult.totalGeneratedByMe[d] || 0) : 0;
+            nodePlan.dailyInjectL[d] = 0; nodePlan.dailyInjectR[d] = 0; nodePlan.dailyBodyInject[d] = 0;
+        }
+
+        if (!isUpper) {
+            var remL = node.targetL || 0;
+            var remR = node.targetR || 0;
+            var remB = node.bodyPool || 0;
+            var accL = 0; var accR = 0;
+            var matchDays = {};
+
+            // [Phase 1: 롤업 반응형 타겟팅 (한쪽 롤업시 반대편 투입)]
+            for (var i = 0; i < workDays.length; i++) {
+                var d = workDays[i];
+                var rollL = nodePlan.dailyRollupL[d];
+                var rollR = nodePlan.dailyRollupR[d];
+
+                accL += rollL;
+                accR += rollR;
+
+                if (rollL > 0 || rollR > 0) {
+                    var bestTier = null;
+                    var b_reqL = 0, b_reqR = 0, b_takeL = 0, b_takeR = 0, b_takeB = 0;
+
+                    for (var t = 0; t < pointTiers.length; t++) {
+                        var tier = pointTiers[t];
+                        var reqL = Math.max(0, tier.pv - accL);
+                        var reqR = Math.max(0, tier.pv - accR);
+
+                        // 핵심규칙: 롤업이 발생한 라인에는 나의 목표 PV를 절대 쓰지 않는다.
+                        var allowedL = (rollL === 0) ? remL : 0;
+                        var allowedR = (rollR === 0) ? remR : 0;
+
+                        var b_neededL = Math.max(0, reqL - allowedL);
+                        var b_neededR = Math.max(0, reqR - allowedR);
+
+                        if (b_neededL + b_neededR <= remB) {
+                            bestTier = tier;
+                            b_takeL = Math.min(allowedL, reqL);
+                            b_takeR = Math.min(allowedR, reqR);
+                            b_takeB = b_neededL + b_neededR;
+                            break;
+                        }
+                    }
+
+                    if (bestTier) {
+                        nodePlan.dailyInjectL[d] += b_takeL; remL -= b_takeL;
+                        nodePlan.dailyInjectR[d] += b_takeR; remR -= b_takeR;
+                        nodePlan.dailyBodyInject[d] += b_takeB; remB -= b_takeB;
+                        accL = 0; accR = 0; // 매칭 후 플래시 아웃
+                        matchDays[d] = true;
+                    }
+                }
+            }
+
+            // [Phase 2: 롤업 없는 날 30/30 균등 배치 (심리적 안정감)]
+            var emptyDays = [];
+            for (var i = 0; i < workDays.length; i++) {
+                var d = workDays[i];
+                if (nodePlan.dailyRollupL[d] === 0 && nodePlan.dailyRollupR[d] === 0 && !matchDays[d]) {
+                    emptyDays.push(d);
+                }
+            }
+
+            var possibleMatches = 0;
+            var tempL = remL, tempR = remR, tempB = remB;
+            while(true) {
+                var reqL = 30, reqR = 30;
+                var tL = Math.min(tempL, reqL);
+                var tR = Math.min(tempR, reqR);
+                var neededB = (reqL - tL) + (reqR - tR);
+                if (neededB <= tempB) {
+                    tempL -= tL; tempR -= tR; tempB -= neededB;
+                    possibleMatches++;
+                } else {
+                    break;
+                }
+            }
+
+            if (possibleMatches > 0 && emptyDays.length > 0) {
+                var interval = Math.max(1, Math.floor(emptyDays.length / possibleMatches));
+                for (var m = 0; m < possibleMatches; m++) {
+                    var targetIdx = Math.min(m * interval, emptyDays.length - 1);
+                    var d = emptyDays[targetIdx];
+
+                    var tL = Math.min(remL, 30); remL -= tL;
+                    var tR = Math.min(remR, 30); remR -= tR;
+                    var nB = (30 - tL) + (30 - tR); remB -= nB;
+
+                    nodePlan.dailyInjectL[d] += tL;
+                    nodePlan.dailyInjectR[d] += tR;
+                    nodePlan.dailyBodyInject[d] += nB;
+                    matchDays[d] = true;
+                }
+            }
+
+            // [Phase 3: 마감일 자투리 점수 쏟아붓기]
+            var lastDay = workDays[workDays.length - 1];
+            if (remL > 0) { nodePlan.dailyInjectL[lastDay] += remL; }
+            if (remR > 0) { nodePlan.dailyInjectR[lastDay] += remR; }
+            if (remB > 0) { nodePlan.dailyBodyInject[lastDay] += remB; }
+        }
+
+        // 나의 일일 최종 매출 발생량 기록 (상위로 올릴 데이터)
+        for (var d = 1; d <= 15; d++) {
+            nodePlan.totalGeneratedByMe[d] = 
+                (nodePlan.dailyRollupL[d] || 0) + (nodePlan.dailyRollupR[d] || 0) + 
+                (nodePlan.dailyInjectL[d] || 0) + (nodePlan.dailyInjectR[d] || 0) + 
+                (nodePlan.dailyBodyInject[d] || 0);
+        }
+
+        resultData.push(nodePlan);
+        return nodePlan;
+    }
+
+    // 3. UI 렌더링 및 출력
+    function calculateMasterPlan() {
+        resultData = [];
+        processNode(orgTree);
+
+        var html = '';
+        // 최상단 노드부터 출력되도록 역순 순회
+        for (var i = resultData.length - 1; i >= 0; i--) {
+            var plan = resultData[i];
+            var isUpper = plan.type !== 'SM';
+            
+            html += '<div class="result-card">';
+            html += '<div class="result-title"><span>[' + plan.type + '] ' + plan.name + ' - 15일 액션 플랜</span>';
+            html += '<span class="summary-badge" id="sumBadge_' + plan.id + '"></span></div>';
+
+            html += '<table><thead><tr><th width="8%">일자</th><th width="12%">좌측 (받은롤업)</th><th width="12%">우측 (받은롤업)</th>';
+            if (!isUpper) html += '<th width="12%">좌측 내 투입</th><th width="12%">우측 내 투입</th><th width="12%">몸PV 투입</th>';
+            html += '<th width="18%">당일 누적(좌/우)</th><th width="14%">수당 획득결과</th></tr></thead><tbody>';
+
+            var accL = 0; var accR = 0;
+            var totalPts = 0; var matchCnt = 0;
+            
+            for (var d = 1; d <= 15; d++) {
+                var isSunday = workDays.indexOf(d) === -1;
+                html += '<tr class="' + (isSunday ? 'sunday' : '') + '"><td>' + d + '일</td>';
+                
+                if (isSunday) {
+                    html += '<td colspan="7">일요일 (합산 제외)</td></tr>';
+                    continue;
+                }
+
+                var rL = plan.dailyRollupL[d] || 0; var rR = plan.dailyRollupR[d] || 0;
+                var iL = plan.dailyInjectL[d] || 0; var iR = plan.dailyInjectR[d] || 0; var bP = plan.dailyBodyInject[d] || 0;
+
+                accL += (rL + iL); accR += (rR + iR);
+                if (bP > 0) { if (accL <= accR) accL += bP; else accR += bP; } // 몸PV는 부족한 쪽으로 합산
+
+                html += '<td>' + (rL > 0 ? '<strong>' + rL + '</strong>' : '<span class="zero-input">0</span>') + '</td>';
+                html += '<td>' + (rR > 0 ? '<strong>' + rR + '</strong>' : '<span class="zero-input">0</span>') + '</td>';
+                
+                if (!isUpper) {
+                    html += '<td>' + (iL > 0 ? '<strong style="color:#d32f2f;">' + iL + '</strong>' : '<span class="zero-input">0</span>') + '</td>';
+                    html += '<td>' + (iR > 0 ? '<strong style="color:#d32f2f;">' + iR + '</strong>' : '<span class="zero-input">0</span>') + '</td>';
+                    html += '<td>' + (bP > 0 ? '<strong style="color:#28a745;">' + bP + '</strong>' : '<span class="zero-input">0</span>') + '</td>';
+                }
+
+                html += '<td class="highlight">좌 ' + accL + ' / 우 ' + accR + '</td>';
+
+                // 매칭 검증
+                var bestTier = null;
+                for (var t = 0; t < pointTiers.length; t++) {
+                    if (accL >= pointTiers[t].pv && accR >= pointTiers[t].pv) { bestTier = pointTiers[t]; break; }
+                }
+
+                if (bestTier) {
+                    html += '<td><span class="score-badge">' + bestTier.pt + '점</span></td>';
+                    totalPts += bestTier.pt; matchCnt++;
+                    accL = 0; accR = 0; // 플래시 아웃
+                } else {
+                    html += '<td>-</td>';
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table></div>';
+            
+            // UI 비동기 업데이트 꼼수
+            setTimeout((function(pid, pts, cnt) { return function() {
+                var el = document.getElementById('sumBadge_' + pid);
+                if(el) el.innerHTML = '총 획득: <span style="color:#d32f2f; font-size:16px;">' + pts + '점</span> (' + cnt + '회 매칭)';
+            }})(plan.id, totalPts, matchCnt), 0);
+        }
+
+        document.getElementById('resultSection').innerHTML = html;
+    }
+
+    window.onload = function() {
+        changeRootRank(); // 초기화
+    };
+</script>
+
+</body>
+</html>

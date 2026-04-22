@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 text-sm;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer components {
+  .glass-btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border text-sm font-medium text-gray-700 whitespace-nowrap transition-all;
+    @apply bg-white/55 backdrop-blur-md border-white/70 shadow-[0_4px_14px_rgba(15,23,42,0.12)];
+  }
+  .glass-btn:hover {
+    @apply bg-white/80 shadow-[0_7px_18px_rgba(15,23,42,0.18)];
+  }
+  .glass-btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  body.print-org-tree-mode * {
+    visibility: hidden !important;
+  }
+  body.print-org-tree-mode .org-tree-print-area,
+  body.print-org-tree-mode .org-tree-print-area * {
+    visibility: visible !important;
+  }
+  body.print-org-tree-mode .org-tree-panel.no-print {
+    display: block !important;
+    visibility: visible !important;
+  }
+  body.print-org-tree-mode .org-tree-print-area {
+    position: fixed !important;
+    inset: 10mm !important;
+    overflow: visible !important;
+    background: #fff !important;
+    z-index: 99999 !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
