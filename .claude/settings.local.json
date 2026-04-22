@@ -29,7 +29,11 @@
       "Bash(git config *)",
       "Bash(winget --version)",
       "Bash(gh auth *)",
-      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")"
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")",
+      "Bash(gh api *)",
+      "Bash(gh run *)",
+      "Bash(where \"GitHub Desktop\")",
+      "Read(//c/Users/mjc/AppData/Local/GitHubDesktop//**)"
     ]
   }
 }
