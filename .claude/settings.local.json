@@ -33,7 +33,10 @@
       "Bash(gh api *)",
       "Bash(gh run *)",
       "Bash(where \"GitHub Desktop\")",
-      "Read(//c/Users/mjc/AppData/Local/GitHubDesktop//**)"
+      "Read(//c/Users/mjc/AppData/Local/GitHubDesktop//**)",
+      "Bash(node *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
