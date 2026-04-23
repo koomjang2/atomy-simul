@@ -72,7 +72,7 @@ function injectBodyPv(nodes, dmId, side, date, gapMan) {
     .filter((n) => SM_RANKS.includes(n.rank))
     .find((n) => {
       const day = n.days?.find((d) => d.date === date)
-      return day && !day.isSunday && (n.bodyPvPool || 0) >= gapMan
+      return day && !day.isSunday && !day.locked && (n.bodyPvPool || 0) >= gapMan
     })
   if (!target) return nodes
 
@@ -143,23 +143,30 @@ function pickEvenSpaced(arr, count) {
   return Array.from({ length: count }, (_, i) => arr[Math.round(i * step)])
 }
 
-// 각 SSM/SM의 남은 bodyPvPool을 조용한 날(좌/우/몸 모두 0인 영업일)에 10만
-// chunk로 균등 분산. 조용한 날이 없으면 전체 영업일에 분산.
+// 각 SSM/SM의 남은 bodyPvPool을 조용한 날(좌/우/몸 모두 0이고 locked 아닌 영업일)에
+// 10만 chunk로 균등 분산. locked 날짜는 건드리지 않고 pool에서 미리 차감한다.
 function scatterRemainingBodyPv(nodes) {
   return nodes.map((node) => {
     if (!SM_RANKS.includes(node.rank)) return node
     const pool = node.bodyPvPool || 0
     if (pool <= 0) return node
 
-    const workDays  = (node.days || []).filter((d) => !d.isSunday)
+    // 수동 입력(locked) 날짜의 bodyPv는 이미 배치된 것으로 간주, pool에서 차감
+    const lockedBodyTotal = (node.days || [])
+      .filter((d) => d.locked)
+      .reduce((s, d) => s + (d.bodyPv || 0), 0)
+    const effectivePool = Math.max(0, pool - lockedBodyTotal)
+    if (effectivePool <= 0) return { ...node, bodyPvPool: 0 }
+
+    const workDays  = (node.days || []).filter((d) => !d.isSunday && !d.locked)
     const quietDays = workDays.filter((d) => !d.leftPv && !d.rightPv && !d.bodyPv)
     const cands     = quietDays.length > 0 ? quietDays : workDays
-    if (!cands.length) return node
+    if (!cands.length) return { ...node, bodyPvPool: 0 }
 
-    const chunks   = Math.ceil(pool / BODY_CHUNK)
+    const chunks   = Math.ceil(effectivePool / BODY_CHUNK)
     const selected = pickEvenSpaced(cands, Math.min(chunks, cands.length))
 
-    let rem = pool
+    let rem = effectivePool
     const bodyMap = {}
     for (const d of selected) {
       if (rem <= 0) break
@@ -175,10 +182,10 @@ function scatterRemainingBodyPv(nodes) {
     return {
       ...node,
       bodyPvPool: 0,
-      days: node.days.map((d) => ({
-        ...d,
-        bodyPv: (d.bodyPv || 0) + (bodyMap[d.date] ?? 0),
-      })),
+      days: node.days.map((d) => {
+        if (d.locked) return d  // 수동 입력 날짜 변경 금지
+        return { ...d, bodyPv: (d.bodyPv || 0) + (bodyMap[d.date] ?? 0) }
+      }),
     }
   })
 }

@@ -216,6 +216,7 @@ function applyScheduleToNode(nodes, smNodeId, scheduleByDate) {
           ...d,
           leftPv:  scheduleByDate[d.date]?.leftPv  ?? 0,
           rightPv: scheduleByDate[d.date]?.rightPv ?? 0,
+          // bodyPv는 Phase 1에서 건드리지 않음 — Phase C(scatter)에서만 배치
           bodyPv:  0,
         }
       }),
