@@ -91,10 +91,12 @@ export function generateSmCandidates(smNode, workdays, allNodes) {
   const hasLeftSub  = getLeftSubtree(smNode.id, allNodes).length > 0
   const hasRightSub = getRightSubtree(smNode.id, allNodes).length > 0
 
-  // locked 날짜(수동 입력)의 PV를 목표에서 차감해 중복 배치를 막는다.
+  // 수동 입력(manual* 플래그)된 PV만 목표에서 차감한다.
+  // locked는 날짜 단위라 "좌만 수동 입력한 날"의 우PV(optimizer 배치)까지
+  // 차감해버리는 오류가 생기므로, 칸별 manualLeft/Right로 정확히 구분한다.
   const lockedDates = new Set((smNode.days || []).filter((d) => d.locked).map((d) => d.date))
-  const lockedLeft  = (smNode.days || []).filter((d) => d.locked).reduce((s, d) => s + (d.leftPv  || 0), 0)
-  const lockedRight = (smNode.days || []).filter((d) => d.locked).reduce((s, d) => s + (d.rightPv || 0), 0)
+  const lockedLeft  = (smNode.days || []).filter((d) => d.manualLeft).reduce((s, d) => s + (d.leftPv  || 0), 0)
+  const lockedRight = (smNode.days || []).filter((d) => d.manualRight).reduce((s, d) => s + (d.rightPv || 0), 0)
 
   const leftTarget  = hasLeftSub  ? 0 : Math.max(0, (smNode.targetLeft  || 0) - lockedLeft)
   const rightTarget = hasRightSub ? 0 : Math.max(0, (smNode.targetRight || 0) - lockedRight)

@@ -151,9 +151,10 @@ function scatterRemainingBodyPv(nodes) {
     const pool = node.bodyPvPool || 0
     if (pool <= 0) return node
 
-    // 수동 입력(locked) 날짜의 bodyPv는 이미 배치된 것으로 간주, pool에서 차감
+    // manualBody 날짜의 bodyPv만 차감 (locked는 날짜 단위라 다른 칸 수동입력
+    // 날의 optimizer-배치 bodyPv까지 차감하는 오류를 방지)
     const lockedBodyTotal = (node.days || [])
-      .filter((d) => d.locked)
+      .filter((d) => d.manualBody)
       .reduce((s, d) => s + (d.bodyPv || 0), 0)
     const effectivePool = Math.max(0, pool - lockedBodyTotal)
     if (effectivePool <= 0) return node
