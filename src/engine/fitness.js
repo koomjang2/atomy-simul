@@ -91,25 +91,36 @@ export function generateSmCandidates(smNode, workdays, allNodes) {
   const hasLeftSub  = getLeftSubtree(smNode.id, allNodes).length > 0
   const hasRightSub = getRightSubtree(smNode.id, allNodes).length > 0
 
-  const leftTarget  = hasLeftSub  ? 0 : (smNode.targetLeft  || 0)
-  const rightTarget = hasRightSub ? 0 : (smNode.targetRight || 0)
+  // locked 날짜(수동 입력)의 PV를 목표에서 차감해 중복 배치를 막는다.
+  const lockedDates = new Set((smNode.days || []).filter((d) => d.locked).map((d) => d.date))
+  const lockedLeft  = (smNode.days || []).filter((d) => d.locked).reduce((s, d) => s + (d.leftPv  || 0), 0)
+  const lockedRight = (smNode.days || []).filter((d) => d.locked).reduce((s, d) => s + (d.rightPv || 0), 0)
+
+  const leftTarget  = hasLeftSub  ? 0 : Math.max(0, (smNode.targetLeft  || 0) - lockedLeft)
+  const rightTarget = hasRightSub ? 0 : Math.max(0, (smNode.targetRight || 0) - lockedRight)
+
+  // locked 날짜를 후보 영업일에서 제외
+  const freeWorkdays = workdays.filter((d) => !lockedDates.has(d.date))
 
   const matchCountL = Math.floor(leftTarget  / MATCH_UNIT)
   const matchCountR = Math.floor(rightTarget / MATCH_UNIT)
   const leftRem     = leftTarget  - matchCountL * MATCH_UNIT
   const rightRem    = rightTarget - matchCountR * MATCH_UNIT
 
-  // 양쪽 모두 자식 있으면 이 SM은 '통과 노드' — 후보 1개(빈 스케줄)만.
+  // 양쪽 모두 자식 있거나 배치할 PV가 없으면 — 후보 1개(빈 스케줄)만.
   if (matchCountL === 0 && matchCountR === 0 && leftRem === 0 && rightRem === 0) {
     return [{ scheduleByDate: {} }]
   }
 
-  // phase 조합: (L-phase, R-phase).
+  // phase 조합: (L-phase, R-phase). freeWorkdays 기준으로 배치.
   // (0,0) = 동일 시점, (0,1) = L→R 이틀매칭, (1,0) = R→L 이틀매칭.
+  // (2,0) / (0,2) = 2일 간격 교차 — 더 분산된 후보
   const PHASE_COMBOS = [
     [0, 0],
     [0, 1],
     [1, 0],
+    [0, 2],
+    [2, 0],
   ]
 
   const candidates = []
@@ -117,27 +128,35 @@ export function generateSmCandidates(smNode, workdays, allNodes) {
     const sched = {}
     for (const wd of workdays) sched[wd.date] = { leftPv: 0, rightPv: 0 }
 
-    // 좌 배치
+    // 좌 배치 (freeWorkdays 기준)
     if (matchCountL > 0) {
-      const datesL = pickEvenSpaced(workdays, matchCountL, phaseL)
+      const datesL = pickEvenSpaced(freeWorkdays, matchCountL, phaseL)
       for (const wd of datesL) sched[wd.date].leftPv += MATCH_UNIT
     }
-    if (leftRem > 0 && workdays.length > 0) {
-      sched[workdays[workdays.length - 1].date].leftPv += leftRem
+    if (leftRem > 0 && freeWorkdays.length > 0) {
+      sched[freeWorkdays[freeWorkdays.length - 1].date].leftPv += leftRem
     }
 
-    // 우 배치
+    // 우 배치 (freeWorkdays 기준)
     if (matchCountR > 0) {
-      const datesR = pickEvenSpaced(workdays, matchCountR, phaseR)
+      const datesR = pickEvenSpaced(freeWorkdays, matchCountR, phaseR)
       for (const wd of datesR) sched[wd.date].rightPv += MATCH_UNIT
     }
-    if (rightRem > 0 && workdays.length > 0) {
-      sched[workdays[workdays.length - 1].date].rightPv += rightRem
+    if (rightRem > 0 && freeWorkdays.length > 0) {
+      sched[freeWorkdays[freeWorkdays.length - 1].date].rightPv += rightRem
     }
 
     candidates.push({ scheduleByDate: sched })
   }
-  return candidates
+
+  // 중복 후보 제거 (phase 포화로 같은 날짜 배열이 나올 수 있음)
+  const seen = new Set()
+  return candidates.filter(({ scheduleByDate }) => {
+    const key = JSON.stringify(scheduleByDate)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -185,17 +204,21 @@ export function calculateFitness(dailyRollup) {
 // ═══════════════════════════════════════════════════════════════════
 
 // SM 후보 스케줄을 nodes에 적용한 새 배열 반환 (immutable).
+// locked: true 인 날짜(수동 입력)는 덮어쓰지 않는다.
 function applyScheduleToNode(nodes, smNodeId, scheduleByDate) {
   return nodes.map((n) => {
     if (n.id !== smNodeId) return n
     return {
       ...n,
-      days: (n.days || []).map((d) => ({
-        ...d,
-        leftPv:  scheduleByDate[d.date]?.leftPv  ?? 0,
-        rightPv: scheduleByDate[d.date]?.rightPv ?? 0,
-        bodyPv:  0, // Phase 2에서 투입
-      })),
+      days: (n.days || []).map((d) => {
+        if (d.locked) return d  // 수동 입력 날짜 보존
+        return {
+          ...d,
+          leftPv:  scheduleByDate[d.date]?.leftPv  ?? 0,
+          rightPv: scheduleByDate[d.date]?.rightPv ?? 0,
+          bodyPv:  0,
+        }
+      }),
     }
   })
 }

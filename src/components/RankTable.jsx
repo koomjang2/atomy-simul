@@ -43,7 +43,7 @@ function detectFlashout(simDays) {
   return warnings
 }
 
-export default function RankTable({ nodeId, allNodes, onUpdateDay }) {
+export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }) {
   // ── 모든 훅을 조건부 return 이전에 호출 (Rules of Hooks) ──
   const node = allNodes.find((n) => n.id === nodeId)
 
@@ -122,19 +122,24 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay }) {
               )
             }
 
+            const isLocked = !!entry?.locked
+
             return (
               <tr
                 key={day.date}
-                className={`${isMatchedPair ? 'bg-slate-50/60' : 'odd:bg-white even:bg-slate-50/40'} hover:bg-slate-100/70`}
+                className={`${isLocked ? 'bg-amber-50/60' : isMatchedPair ? 'bg-slate-50/60' : 'odd:bg-white even:bg-slate-50/40'} hover:bg-slate-100/70`}
               >
                 <td className="border-b border-slate-100 px-2 py-1.5 text-center">{day.date}</td>
                 <td className="border-b border-slate-100 px-2 py-1.5 text-center text-gray-600">{day.dayOfWeek}</td>
 
                 {showLeftInput && (
-                  <td className="border-b border-slate-100 px-1 py-1">
+                  <td className={`border-b border-slate-100 px-1 py-1 ${isLocked ? 'bg-amber-50' : ''}`}>
                     <input
                       type="number" min={0}
-                      className="w-full text-center bg-white/70 border border-slate-200 rounded px-1 py-0.5 outline-none focus:border-sky-400"
+                      className={`w-full text-center rounded px-1 py-0.5 outline-none
+                        ${isLocked
+                          ? 'bg-amber-100 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
+                          : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
                       value={entry?.leftPv || ''}
                       onChange={(e) => handleInput(day.date, 'leftPv', e.target.value)}
                       placeholder="0"
@@ -142,10 +147,13 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay }) {
                   </td>
                 )}
                 {showRightInput && (
-                  <td className="border-b border-slate-100 px-1 py-1">
+                  <td className={`border-b border-slate-100 px-1 py-1 ${isLocked ? 'bg-amber-50' : ''}`}>
                     <input
                       type="number" min={0}
-                      className="w-full text-center bg-white/70 border border-slate-200 rounded px-1 py-0.5 outline-none focus:border-sky-400"
+                      className={`w-full text-center rounded px-1 py-0.5 outline-none
+                        ${isLocked
+                          ? 'bg-amber-100 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
+                          : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
                       value={entry?.rightPv || ''}
                       onChange={(e) => handleInput(day.date, 'rightPv', e.target.value)}
                       placeholder="0"
@@ -153,10 +161,13 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay }) {
                   </td>
                 )}
                 {showBodyInput && (
-                  <td className="border-b border-slate-100 px-1 py-1">
+                  <td className={`border-b border-slate-100 px-1 py-1 ${isLocked ? 'bg-amber-50' : ''}`}>
                     <input
                       type="number" min={0}
-                      className="w-full text-center bg-white/70 border border-slate-200 rounded px-1 py-0.5 outline-none focus:border-sky-400"
+                      className={`w-full text-center rounded px-1 py-0.5 outline-none
+                        ${isLocked
+                          ? 'bg-amber-100 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
+                          : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
                       value={entry?.bodyPv || ''}
                       onChange={(e) => handleInput(day.date, 'bodyPv', e.target.value)}
                       placeholder="0"
@@ -207,17 +218,39 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay }) {
           )}
           <tr>
             <td className="border-t border-slate-200 px-2 py-2 bg-slate-50 text-[12px] text-slate-700" colSpan={totalCols}>
-              <span className="font-semibold">개인 수당 계산 요약</span>
-              <span className="ml-2">예상수당 {totalCommission.toLocaleString()}원</span>
-              <span className="ml-2">총 점수 {totalScore}점</span>
-              <span className="ml-2">총 매칭 {totalMatch}회</span>
-              <span className="ml-2">
-                {tierSummary.length
-                  ? tierSummary.map((t) => `${t.score}점 ${t.count}회`).join(' · ')
-                  : '매칭 없음'}
-              </span>
+              <div className="flex items-center flex-wrap gap-x-3 gap-y-1">
+                <span className="font-semibold">개인 수당 계산 요약</span>
+                <span>예상수당 {totalCommission.toLocaleString()}원</span>
+                <span>총 점수 {totalScore}점</span>
+                <span>총 매칭 {totalMatch}회</span>
+                <span>
+                  {tierSummary.length
+                    ? tierSummary.map((t) => `${t.score}점 ${t.count}회`).join(' · ')
+                    : '매칭 없음'}
+                </span>
+                {/* 수동 입력 범례 */}
+                <span className="flex items-center gap-1 ml-2">
+                  <span className="inline-block w-3 h-3 rounded bg-amber-300 border border-amber-500" />
+                  <span className="text-amber-700">수동 입력 (자동최적화 시 고정)</span>
+                </span>
+              </div>
             </td>
           </tr>
+          {/* 입력 초기화 버튼 */}
+          {onResetDays && (
+            <tr>
+              <td className="px-2 py-2 bg-white" colSpan={totalCols}>
+                <button
+                  onClick={() => {
+                    if (window.confirm('이 노드의 입력값을 모두 초기화할까요?')) onResetDays(node.id)
+                  }}
+                  className="text-xs px-3 py-1.5 rounded border border-slate-300 text-slate-600 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors"
+                >
+                  입력 초기화
+                </button>
+              </td>
+            </tr>
+          )}
         </tfoot>
       </table>
     </div>

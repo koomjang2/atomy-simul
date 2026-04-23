@@ -115,7 +115,29 @@ function reducer(state, action) {
         ...state,
         nodes: state.nodes.map((n) => {
           if (n.id !== nodeId) return n
-          return { ...n, days: n.days.map((d) => (d.date === date ? { ...d, [field]: value } : d)) }
+          return {
+            ...n,
+            days: n.days.map((d) => {
+              if (d.date !== date) return d
+              const updated = { ...d, [field]: value }
+              // 입력값이 하나라도 있으면 locked, 모두 0이면 해제
+              const hasValue = (updated.leftPv || 0) + (updated.rightPv || 0) + (updated.bodyPv || 0) > 0
+              return { ...updated, locked: hasValue }
+            }),
+          }
+        }),
+      }
+    }
+
+    case 'RESET_NODE_DAYS': {
+      return {
+        ...state,
+        nodes: state.nodes.map((n) => {
+          if (n.id !== action.nodeId) return n
+          return {
+            ...n,
+            days: n.days.map((d) => ({ ...d, leftPv: 0, rightPv: 0, bodyPv: 0, locked: false })),
+          }
         }),
       }
     }
@@ -160,9 +182,10 @@ export function useStore() {
   const renameNode      = useCallback((id, name) => dispatch({ type: 'RENAME_NODE', id, name }), [])
   const updateDay       = useCallback((nodeId, date, field, value) => dispatch({ type: 'UPDATE_DAY', nodeId, date, field, value }), [])
   const applyOptimization = useCallback((updatedNodes) => dispatch({ type: 'APPLY_OPTIMIZATION', updatedNodes }), [])
+  const resetNodeDays     = useCallback((nodeId) => dispatch({ type: 'RESET_NODE_DAYS', nodeId }), [])
   const loadState         = useCallback((s) => dispatch({ type: 'LOAD_STATE', state: s }), [])
   const loadTree          = useCallback((treeNodes) => dispatch({ type: 'LOAD_TREE', treeNodes }), [])
   const resetTree         = useCallback(() => dispatch({ type: 'RESET_TREE' }), [])
 
-  return { state, setPeriod, selectNode, addNode, removeNode, updateNode, changeRank, renameNode, updateDay, applyOptimization, loadState, loadTree, resetTree }
+  return { state, setPeriod, selectNode, addNode, removeNode, updateNode, changeRank, renameNode, updateDay, applyOptimization, loadState, loadTree, resetTree, resetNodeDays }
 }

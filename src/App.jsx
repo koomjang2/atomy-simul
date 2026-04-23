@@ -23,7 +23,7 @@ const RANK_BADGE_CLASS = {
 export default function App() {
   const {
     state, setPeriod, selectNode, addNode, removeNode,
-    updateNode, changeRank, renameNode, updateDay, applyOptimization, loadState, resetTree,
+    updateNode, changeRank, renameNode, updateDay, applyOptimization, loadState, resetTree, resetNodeDays,
   } = useStore()
   const { year, month, half, nodes, selectedNodeId } = state
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
@@ -189,7 +189,7 @@ export default function App() {
                 )}
               </div>
 
-              <RankTable nodeId={selectedNodeId} allNodes={nodes} onUpdateDay={updateDay} />
+              <RankTable nodeId={selectedNodeId} allNodes={nodes} onUpdateDay={updateDay} onResetDays={resetNodeDays} />
               <ExportButtons nodes={nodes} selectedNode={selectedNode} state={state} onLoad={loadState} />
             </>
           ) : (

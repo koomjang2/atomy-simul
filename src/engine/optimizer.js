@@ -17,13 +17,17 @@ const DM_RANKS = ['DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
 // ═══════════════════════════════════════════════════════════════════
 
 // 모든 SSM/SM의 days[]를 0으로 리셋해 Phase B의 후보 탐색에 깨끗한
-// 시작점을 제공한다. DM 이상 노드는 입력 PV가 없으므로 그대로 둔다.
+// 시작점을 제공한다. locked: true 인 날짜(수동 입력)는 건드리지 않는다.
 function resetSmSchedules(nodes, calDays) {
   return nodes.map((n) => {
     if (!SM_RANKS.includes(n.rank)) return n
     return {
       ...n,
-      days: calDays.map((d) => ({ ...d, leftPv: 0, rightPv: 0, bodyPv: 0 })),
+      days: calDays.map((d) => {
+        const existing = n.days?.find((e) => e.date === d.date)
+        if (existing?.locked) return existing  // 수동 입력 날짜 보존
+        return { ...d, leftPv: 0, rightPv: 0, bodyPv: 0, locked: false }
+      }),
     }
   })
 }
