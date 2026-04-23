@@ -120,9 +120,13 @@ function reducer(state, action) {
             days: n.days.map((d) => {
               if (d.date !== date) return d
               const updated = { ...d, [field]: value }
-              // 입력값이 하나라도 있으면 locked, 모두 0이면 해제
-              const hasValue = (updated.leftPv || 0) + (updated.rightPv || 0) + (updated.bodyPv || 0) > 0
-              return { ...updated, locked: hasValue }
+              // 칸별 수동 입력 플래그 (시각화용)
+              const manualLeft  = field === 'leftPv'  ? value > 0 : (d.manualLeft  || false)
+              const manualRight = field === 'rightPv' ? value > 0 : (d.manualRight || false)
+              const manualBody  = field === 'bodyPv'  ? value > 0 : (d.manualBody  || false)
+              // locked: 날짜 단위, 옵티마이저 보호용
+              const locked = manualLeft || manualRight || manualBody
+              return { ...updated, manualLeft, manualRight, manualBody, locked }
             }),
           }
         }),
@@ -136,7 +140,11 @@ function reducer(state, action) {
           if (n.id !== action.nodeId) return n
           return {
             ...n,
-            days: n.days.map((d) => ({ ...d, leftPv: 0, rightPv: 0, bodyPv: 0, locked: false })),
+            days: n.days.map((d) => ({
+              ...d,
+              leftPv: 0, rightPv: 0, bodyPv: 0,
+              locked: false, manualLeft: false, manualRight: false, manualBody: false,
+            })),
           }
         }),
       }

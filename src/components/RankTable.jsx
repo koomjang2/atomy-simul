@@ -122,23 +122,21 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
               )
             }
 
-            const isLocked = !!entry?.locked
-
             return (
               <tr
                 key={day.date}
-                className={`${isLocked ? 'bg-amber-50/60' : isMatchedPair ? 'bg-slate-50/60' : 'odd:bg-white even:bg-slate-50/40'} hover:bg-slate-100/70`}
+                className={`${isMatchedPair ? 'bg-slate-50/60' : 'odd:bg-white even:bg-slate-50/40'} hover:bg-slate-100/70`}
               >
                 <td className="border-b border-slate-100 px-2 py-1.5 text-center">{day.date}</td>
                 <td className="border-b border-slate-100 px-2 py-1.5 text-center text-gray-600">{day.dayOfWeek}</td>
 
                 {showLeftInput && (
-                  <td className={`border-b border-slate-100 px-1 py-1 ${isLocked ? 'bg-amber-50' : ''}`}>
+                  <td className="border-b border-slate-100 px-1 py-1">
                     <input
                       type="number" min={0}
                       className={`w-full text-center rounded px-1 py-0.5 outline-none
-                        ${isLocked
-                          ? 'bg-amber-100 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
+                        ${entry?.manualLeft
+                          ? 'bg-white/70 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
                           : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
                       value={entry?.leftPv || ''}
                       onChange={(e) => handleInput(day.date, 'leftPv', e.target.value)}
@@ -147,12 +145,12 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
                   </td>
                 )}
                 {showRightInput && (
-                  <td className={`border-b border-slate-100 px-1 py-1 ${isLocked ? 'bg-amber-50' : ''}`}>
+                  <td className="border-b border-slate-100 px-1 py-1">
                     <input
                       type="number" min={0}
                       className={`w-full text-center rounded px-1 py-0.5 outline-none
-                        ${isLocked
-                          ? 'bg-amber-100 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
+                        ${entry?.manualRight
+                          ? 'bg-white/70 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
                           : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
                       value={entry?.rightPv || ''}
                       onChange={(e) => handleInput(day.date, 'rightPv', e.target.value)}
@@ -161,12 +159,12 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
                   </td>
                 )}
                 {showBodyInput && (
-                  <td className={`border-b border-slate-100 px-1 py-1 ${isLocked ? 'bg-amber-50' : ''}`}>
+                  <td className="border-b border-slate-100 px-1 py-1">
                     <input
                       type="number" min={0}
                       className={`w-full text-center rounded px-1 py-0.5 outline-none
-                        ${isLocked
-                          ? 'bg-amber-100 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
+                        ${entry?.manualBody
+                          ? 'bg-white/70 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
                           : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
                       value={entry?.bodyPv || ''}
                       onChange={(e) => handleInput(day.date, 'bodyPv', e.target.value)}
@@ -230,7 +228,7 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
                 </span>
                 {/* 수동 입력 범례 */}
                 <span className="flex items-center gap-1 ml-2">
-                  <span className="inline-block w-3 h-3 rounded bg-amber-300 border border-amber-500" />
+                  <span className="inline-block w-4 h-4 rounded border-2 border-amber-400 bg-white" />
                   <span className="text-amber-700">수동 입력 (자동최적화 시 고정)</span>
                 </span>
               </div>

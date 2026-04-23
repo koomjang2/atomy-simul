@@ -156,12 +156,12 @@ function scatterRemainingBodyPv(nodes) {
       .filter((d) => d.locked)
       .reduce((s, d) => s + (d.bodyPv || 0), 0)
     const effectivePool = Math.max(0, pool - lockedBodyTotal)
-    if (effectivePool <= 0) return { ...node, bodyPvPool: 0 }
+    if (effectivePool <= 0) return node
 
     const workDays  = (node.days || []).filter((d) => !d.isSunday && !d.locked)
     const quietDays = workDays.filter((d) => !d.leftPv && !d.rightPv && !d.bodyPv)
     const cands     = quietDays.length > 0 ? quietDays : workDays
-    if (!cands.length) return { ...node, bodyPvPool: 0 }
+    if (!cands.length) return node
 
     const chunks   = Math.ceil(effectivePool / BODY_CHUNK)
     const selected = pickEvenSpaced(cands, Math.min(chunks, cands.length))
@@ -181,7 +181,8 @@ function scatterRemainingBodyPv(nodes) {
 
     return {
       ...node,
-      bodyPvPool: 0,
+      // bodyPvPool은 UI에 표시되는 '목표값'이므로 변경하지 않는다.
+      // 내부 배분 추적용으로만 사용하고 원본 유지.
       days: node.days.map((d) => {
         if (d.locked) return d  // 수동 입력 날짜 변경 금지
         return { ...d, bodyPv: (d.bodyPv || 0) + (bodyMap[d.date] ?? 0) }
