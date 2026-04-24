@@ -454,7 +454,18 @@ return (
     <div ref={treePrintRef} className="org-tree-print-area overflow-auto flex-1 p-4 bg-slate-50/30">
       <div className="origin-top transform scale-[0.85] md:scale-100 transition-transform">
         {roots.map((root) => (
-          <BinaryTreeNode key={root.id} nodeId={root.id} {...props} />
+          <BinaryTreeNode
+            key={root.id}
+            nodeId={root.id}
+            allNodes={nodes}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            onAdd={onAdd}
+            onRemove={onRemove}
+            onChangeRank={onChangeRank}
+            onChangeName={onChangeName}
+            onUpdateNode={onUpdateNode}
+          />
         ))}
       </div>
     </div>
