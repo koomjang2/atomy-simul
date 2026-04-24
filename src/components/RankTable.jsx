@@ -3,6 +3,7 @@ import { computeNodeSimulation, getLeftSubtree, getRightSubtree } from '../engin
 import { checkRank } from '../engine/rankLogic.js'
 import { N_VALUE, SCORE_TIERS } from '../engine/pvRules.js'
 
+// 서브트리 노드들의 보름 총합 PV 계산 (모든 날짜의 leftPv+rightPv+bodyPv 합산)
 function subTreePeriodTotal(subNodes) {
   return subNodes.reduce((sum, sub) =>
     sum + (sub.days?.reduce((s, d) => s + (d.leftPv || 0) + (d.rightPv || 0) + (d.bodyPv || 0), 0) ?? 0), 0)
@@ -43,6 +44,7 @@ function detectFlashout(simDays) {
 }
 
 export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }) {
+  // ── 모든 훅을 조건부 return 이전에 호출 (Rules of Hooks) ──
   const node = allNodes.find((n) => n.id === nodeId)
 
   const isDMOrAbove = ['DM', 'SRM', 'STM', 'RM', 'CM', 'IM'].includes(node?.rank)
@@ -56,6 +58,7 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
 
   if (!node) return <p className="text-gray-400 p-4">노드를 선택하세요.</p>
 
+  // 표시할 컬럼 결정
   const showLeftInput  = !isDMOrAbove && !hasLeftSub
   const showRightInput = !isDMOrAbove && !hasRightSub
   const showBodyInput  = !isDMOrAbove
@@ -71,6 +74,7 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
     .map((t) => ({ score: t.score, count: simDays.filter((d) => d.score === t.score).length }))
     .filter((t) => t.count > 0)
 
+  // 직급 달성 판정: 보름 총합 기준
   const periodLeft  = totalLeft  + leftSubTotal
   const periodRight = totalRight + rightSubTotal
   const periodBody  = totalBody
@@ -85,117 +89,67 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
     onUpdateDay(node.id, date, field, isNaN(val) ? 0 : val)
   }
 
-  return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
-      <table className="w-full text-sm border-separate border-spacing-0">
-        <thead>
-          <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-            <th className="border-b border-slate-200 px-2 py-2 text-center w-9 font-semibold">일</th>
-            <th className="border-b border-slate-200 px-2 py-2 text-center w-14 whitespace-nowrap font-semibold">요일</th>
-            {showLeftInput  && <th className="border-b border-slate-200 px-2 py-2 text-center whitespace-nowrap font-semibold">좌PV</th>}
-            {showRightInput && <th className="border-b border-slate-200 px-2 py-2 text-center whitespace-nowrap font-semibold">우PV</th>}
-            {showBodyInput  && <th className="border-b border-slate-200 px-2 py-2 text-center whitespace-nowrap font-semibold">몸PV</th>}
-            <th className="border-b border-slate-200 px-3 py-2 text-center bg-blue-50/70 whitespace-nowrap min-w-[74px] font-semibold">누적 좌</th>
-            <th className="border-b border-slate-200 px-3 py-2 text-center bg-orange-50/70 whitespace-nowrap min-w-[74px] font-semibold">누적 우</th>
-            <th className="border-b border-slate-200 px-2 py-2 text-center w-16 whitespace-nowrap font-semibold">점수</th>
-          </tr>
-        </thead>
-        <tbody>
-          {simDays.map((day) => {
-            const isMatchedPair = !!matchPairs[day.date]
-            const flashWarn  = flashouts[day.date]
-            const entry = node.days.find((d) => d.date === day.date)
-
-            if (day.isSunday) {
-              return (
-                <tr key={day.date} className="bg-slate-50 text-gray-400">
-                  <td className="border-b border-slate-100 px-2 py-1.5 text-center">{day.date}</td>
-                  <td className="border-b border-slate-100 px-2 py-1.5 text-center font-medium text-red-400">일</td>
-                  <td className="border-b border-slate-100 px-2 py-1.5 text-center text-xs" colSpan={totalCols - 2}>
-                    휴무
-                  </td>
-                </tr>
-              )
-            }
+// RankTable.jsx의 테이블 스타일 수정
+return (
+  <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+    <table className="w-full text-[10px] md:text-sm border-separate border-spacing-0">
+      <thead>
+        <tr className="bg-slate-50">
+          <th className="border-b px-1 py-1.5 md:px-2 md:py-2 text-center font-semibold">일</th>
+          <th className="border-b px-1 py-1.5 md:px-2 md:py-2 text-center font-semibold">요일</th>
+          {showLeftInput && <th className="border-b px-1 py-1.5 text-center font-semibold">좌</th>}
+          {showRightInput && <th className="border-b px-1 py-1.5 text-center font-semibold">우</th>}
+          {showBodyInput && <th className="border-b px-1 py-1.5 text-center font-semibold">몸</th>}
+          <th className="border-b px-1 py-1.5 text-center bg-blue-50/50 font-semibold">누적 좌</th>
+          <th className="border-b px-1 py-1.5 text-center bg-orange-50/50 font-semibold">누적 우</th>
+          <th className="border-b px-1 py-1.5 text-center font-semibold">점수</th>
+        </tr>
+      </thead>
+      <tbody>
+        {simDays.map((day) => {
+          const entry = node.days.find((d) => d.date === day.date)
+          const isMatched = matchPairs[day.date] === 'matched'
+          const flashWarning = flashouts[day.date]
 
             return (
-              <tr
-                key={day.date}
-                className={`${isMatchedPair ? 'bg-slate-50/60' : 'odd:bg-white even:bg-slate-50/40'} hover:bg-slate-100/70`}
-              >
-                <td className="border-b border-slate-100 px-2 py-1.5 text-center">{day.date}</td>
-                <td className="border-b border-slate-100 px-2 py-1.5 text-center text-gray-600">{day.dayOfWeek}</td>
-
+              <tr key={day.date} className={`${day.isSunday ? 'bg-red-50/30' : ''} ${isMatched ? 'bg-blue-50/20' : ''} hover:bg-slate-50/80`}>
+                <td className="border-b px-1 py-1 text-center text-gray-500">{day.date}</td>
+                <td className={`border-b px-1 py-1 text-center font-medium ${day.isSunday ? 'text-red-500' : 'text-gray-600'}`}>{day.dayOfWeek}</td>
                 {showLeftInput && (
-                  <td className="border-b border-slate-100 px-1 py-1 min-w-[70px]">
-                    <input
-                      type="number" min={0}
-                      className={`w-full text-center rounded px-1 py-0.5 outline-none
-                        ${entry?.manualLeft
-                          ? 'bg-white/70 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
-                          : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
-                      value={entry?.leftPv || ''}
-                      onChange={(e) => handleInput(day.date, 'leftPv', e.target.value)}
-                      placeholder="0"
-                    />
+                  <td className="border-b px-1 py-1">
+                    <input type="number" className="w-full md:w-20 border rounded px-1 py-0.5 text-right outline-none focus:border-blue-400" value={entry?.leftPv || 0} onChange={(e) => handleInput(day.date, 'leftPv', e.target.value)} />
                   </td>
                 )}
                 {showRightInput && (
-                  <td className="border-b border-slate-100 px-1 py-1 min-w-[70px]">
-                    <input
-                      type="number" min={0}
-                      className={`w-full text-center rounded px-1 py-0.5 outline-none
-                        ${entry?.manualRight
-                          ? 'bg-white/70 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
-                          : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
-                      value={entry?.rightPv || ''}
-                      onChange={(e) => handleInput(day.date, 'rightPv', e.target.value)}
-                      placeholder="0"
-                    />
+                  <td className="border-b px-1 py-1">
+                    <input type="number" className="w-full md:w-20 border rounded px-1 py-0.5 text-right outline-none focus:border-orange-400" value={entry?.rightPv || 0} onChange={(e) => handleInput(day.date, 'rightPv', e.target.value)} />
                   </td>
                 )}
                 {showBodyInput && (
-                  <td className="border-b border-slate-100 px-1 py-1 min-w-[70px]">
-                    <input
-                      type="number" min={0}
-                      className={`w-full text-center rounded px-1 py-0.5 outline-none
-                        ${entry?.manualBody
-                          ? 'bg-white/70 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
-                          : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
-                      value={entry?.bodyPv || ''}
-                      onChange={(e) => handleInput(day.date, 'bodyPv', e.target.value)}
-                      placeholder="0"
-                    />
+                  <td className="border-b px-1 py-1">
+                    <input type="number" className="w-full md:w-20 border rounded px-1 py-0.5 text-right outline-none focus:border-gray-400" value={entry?.bodyPv || 0} onChange={(e) => handleInput(day.date, 'bodyPv', e.target.value)} />
                   </td>
                 )}
-
-                <td className="border-b border-slate-100 px-2 py-1.5 text-center text-blue-700 bg-blue-50/60 font-mono text-xs">
-                  {day.effLeft > 0 ? day.effLeft : ''}
-                </td>
-                <td className="border-b border-slate-100 px-2 py-1.5 text-center text-orange-700 bg-orange-50/60 font-mono text-xs">
-                  {day.effRight > 0 ? day.effRight : ''}
-                </td>
-                <td className="border-b border-slate-100 px-2 py-1.5 text-center font-medium text-blue-700 bg-blue-50/70 whitespace-nowrap">
-                  {day.score > 0 ? `${day.score}점` : ''}
-                  {flashWarn && <span title={flashWarn} className="ml-1 text-yellow-500">⚠️</span>}
-                </td>
+                <td className={`border-b px-1 py-1 text-center font-mono bg-blue-50/30 ${day.effLeft > 0 ? 'text-blue-700 font-bold' : 'text-gray-300'}`}>{day.effLeft > 0 ? day.effLeft : '—'}</td>
+                <td className={`border-b px-1 py-1 text-center font-mono bg-orange-50/30 ${day.effRight > 0 ? 'text-orange-700 font-bold' : 'text-gray-300'}`}>{day.effRight > 0 ? day.effRight : '—'}</td>
+                <td className={`border-b px-1 py-1 text-center font-bold ${day.score > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{day.score > 0 ? day.score : '—'}</td>
               </tr>
             )
           })}
-        </tbody>
-        <tfoot>
+       </tbody>
+       <tfoot>
           <tr className="bg-slate-100/70 font-semibold">
-            <td className="border-t border-slate-200 px-2 py-2 text-center whitespace-nowrap" colSpan={2}>합계</td>
-            {showLeftInput  && <td className="border-t border-slate-200 px-2 py-2 text-center whitespace-nowrap">{totalLeft}만</td>}
-            {showRightInput && <td className="border-t border-slate-200 px-2 py-2 text-center whitespace-nowrap">{totalRight}만</td>}
-            {showBodyInput  && <td className="border-t border-slate-200 px-2 py-2 text-center whitespace-nowrap">{totalBody}만</td>}
-            <td className="border-t border-slate-200 px-2 py-2 text-center text-blue-700 bg-blue-50/70 font-mono whitespace-nowrap">
+            <td className="border-t border-slate-200 px-2 py-2 text-center" colSpan={2}>합계</td>
+            {showLeftInput  && <td className="border-t border-slate-200 px-2 py-2 text-center">{totalLeft}만</td>}
+            {showRightInput && <td className="border-t border-slate-200 px-2 py-2 text-center">{totalRight}만</td>}
+            {showBodyInput  && <td className="border-t border-slate-200 px-2 py-2 text-center">{totalBody}만</td>}
+            <td className="border-t border-slate-200 px-2 py-2 text-center text-blue-700 bg-blue-50/70 font-mono">
               {periodLeft > 0 ? `${periodLeft}만` : '—'}
             </td>
-            <td className="border-t border-slate-200 px-2 py-2 text-center text-orange-700 bg-orange-50/70 font-mono whitespace-nowrap">
+            <td className="border-t border-slate-200 px-2 py-2 text-center text-orange-700 bg-orange-50/70 font-mono">
               {periodRight > 0 ? `${periodRight}만` : '—'}
             </td>
-            <td className="border-t border-slate-200 px-2 py-2 text-center text-blue-700 whitespace-nowrap">{totalScore}점</td>
+            <td className="border-t border-slate-200 px-2 py-2 text-center text-blue-700">{totalScore}점</td>
           </tr>
           {achieved !== null && (
             <tr>
@@ -212,7 +166,7 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
           )}
           <tr>
             <td className="border-t border-slate-200 px-2 py-2 bg-slate-50 text-[12px] text-slate-700" colSpan={totalCols}>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-x-3 gap-y-1">
+              <div className="flex items-center flex-wrap gap-x-3 gap-y-1">
                 <span className="font-semibold">개인 수당 계산 요약</span>
                 <span>예상수당 {totalCommission.toLocaleString()}원</span>
                 <span>총 점수 {totalScore}점</span>
@@ -222,13 +176,15 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
                     ? tierSummary.map((t) => `${t.score}점 ${t.count}회`).join(' · ')
                     : '매칭 없음'}
                 </span>
-                <span className="flex items-center gap-1 sm:ml-2">
+                {/* 수동 입력 범례 */}
+                <span className="flex items-center gap-1 ml-2">
                   <span className="inline-block w-4 h-4 rounded border-2 border-amber-400 bg-white" />
                   <span className="text-amber-700">수동 입력 (자동최적화 시 고정)</span>
                 </span>
               </div>
             </td>
           </tr>
+          {/* 입력 초기화 버튼 */}
           {onResetDays && (
             <tr>
               <td className="px-2 py-2 bg-white" colSpan={totalCols}>

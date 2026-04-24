@@ -436,52 +436,28 @@ export default function OrgTreePanel({
     return () => window.removeEventListener('print-org-tree', handlePrintEvent)
   }, [])
 
-  return (
-    <aside className="org-tree-panel bg-white border-b md:border-b-0 md:border-r flex flex-col no-print flex-shrink-0 w-full h-[45vh] md:h-auto md:w-1/2 lg:w-5/12" style={{ minWidth: 220 }}>
-      <div className="px-3 py-2 border-b flex flex-col lg:flex-row lg:items-center justify-between gap-2">
-        <div className="min-w-0">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">조직 트리</span>
-          <p className="text-[10px] text-gray-400 mt-0.5">직급 클릭 → 변경 · 이름 클릭 → 수정 · 좌·우 → 하위 추가</p>
-        </div>
-        <div className="flex overflow-x-auto lg:overflow-visible gap-2 flex-shrink-0 pb-1 lg:pb-0">
-          <button
-            onClick={onSaveTree}
-            className="glass-btn h-9 min-w-[90px] px-3 text-xs"
-            title="조직 구조만 저장 (PV 데이터 제외)"
-          >🗂 저장</button>
-          <button
-            onClick={onLoadTree}
-            className="glass-btn h-9 min-w-[90px] px-3 text-xs"
-            title="저장된 조직 구조 불러오기"
-          >📂 불러오기</button>
-          <button
-            onClick={onPrintTree}
-            className="glass-btn h-9 min-w-[90px] px-3 text-xs"
-            title="조직 트리 인쇄"
-          >🖨 인쇄</button>
-          <button
-            onClick={onResetTree}
-            className="glass-btn h-9 min-w-[90px] px-3 text-xs"
-            title="조직 트리 초기화"
-          >♻ 초기화</button>
-        </div>
+// OrgTreePanel.jsx의 반환부 수정
+return (
+  <aside className="org-tree-panel bg-white border-b md:border-b-0 md:border-r flex flex-col no-print flex-shrink-0 w-full md:w-1/2 lg:w-5/12">
+    <div className="px-3 py-2 border-b flex flex-col lg:flex-row lg:items-center justify-between gap-1">
+      <span className="text-[11px] font-bold text-gray-500 uppercase">조직 트리</span>
+      <div className="flex overflow-x-auto gap-1 pb-1 lg:pb-0">
+         {/* 버튼 크기를 모바일에서 더 작게 조정 (px-2, text-[10px]) */}
+         <button onClick={onSaveTree} className="glass-btn h-7 px-2 text-[10px] min-w-fit">🗂 저장</button>
+         <button onClick={onLoadTree} className="glass-btn h-7 px-2 text-[10px] min-w-fit">📂 열기</button>
+         <button onClick={onPrintTree} className="glass-btn h-7 px-2 text-[10px] min-w-fit">🖨 인쇄</button>
+         <button onClick={onResetTree} className="glass-btn h-7 px-2 text-[10px] min-w-fit">♻ 초기화</button>
       </div>
-      <div ref={treePrintRef} className="org-tree-print-area overflow-auto flex-1 p-4">
+    </div>
+    
+    {/* 모바일에서 트리를 80% 크기로 축소하여 표시 */}
+    <div ref={treePrintRef} className="org-tree-print-area overflow-auto flex-1 p-4 bg-slate-50/30">
+      <div className="origin-top transform scale-[0.85] md:scale-100 transition-transform">
         {roots.map((root) => (
-          <BinaryTreeNode
-            key={root.id}
-            nodeId={root.id}
-            allNodes={nodes}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            onAdd={onAdd}
-            onRemove={onRemove}
-            onChangeRank={onChangeRank}
-            onChangeName={onChangeName}
-            onUpdateNode={onUpdateNode}
-          />
+          <BinaryTreeNode key={root.id} nodeId={root.id} {...props} />
         ))}
       </div>
-    </aside>
-  )
+    </div>
+  </aside>
+)
 }
