@@ -42,7 +42,6 @@ function summarizeNodePerformance(node, allNodes) {
   }
 }
 
-// 이름 인라인 편집 컴포넌트
 function EditableName({ name, onChange, summary }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(name)
@@ -139,7 +138,6 @@ function NodeCard({ node, isSelected, onSelect, canAddLeft, canAddRight,
         `}
         onClick={() => onSelect()}
       >
-        {/* 직급 + 드롭다운 */}
         <button
           className="flex items-center gap-0.5 mx-auto text-xs font-bold underline decoration-dotted hover:opacity-70"
           onClick={(e) => { e.stopPropagation(); setShowRankMenu(!showRankMenu) }}
@@ -149,14 +147,12 @@ function NodeCard({ node, isSelected, onSelect, canAddLeft, canAddRight,
           <ChevronDown size={9} />
         </button>
 
-        {/* 이름 (더블클릭 편집) */}
         <EditableName
           name={node.name}
           onChange={onChangeName}
           summary={summary}
         />
 
-        {/* 삭제 버튼 */}
         {onRemove && (
           <button
             className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 text-[10px]
@@ -211,7 +207,6 @@ function NodeCard({ node, isSelected, onSelect, canAddLeft, canAddRight,
         </div>
       )}
 
-      {/* 직급 드롭다운 */}
       {showRankMenu && (
         <div
           className="absolute top-full mt-1 z-50 bg-white border rounded-lg shadow-xl py-1 min-w-[72px]"
@@ -232,7 +227,6 @@ function NodeCard({ node, isSelected, onSelect, canAddLeft, canAddRight,
         </div>
       )}
 
-      {/* 좌/우 추가 버튼 */}
       <div className="flex gap-1 mt-1.5">
         <button
           disabled={!canAddLeft}
@@ -261,7 +255,6 @@ function NodeCard({ node, isSelected, onSelect, canAddLeft, canAddRight,
   )
 }
 
-// ─── 바이너리 트리 재귀 노드 ──────────────────────────────────────
 function BinaryTreeNode({ nodeId, allNodes, selectedId, onSelect, onAdd, onRemove, onChangeRank, onChangeName, onUpdateNode }) {
   const [addSide, setAddSide] = useState(null)
   const [newRank, setNewRank] = useState('SM')
@@ -296,7 +289,6 @@ function BinaryTreeNode({ nodeId, allNodes, selectedId, onSelect, onAdd, onRemov
 
   return (
     <div className="flex flex-col items-center" style={{ minWidth: hasChildren ? childRowWidth : NODE_CARD_WIDTH }}>
-      {/* ── 노드 카드 ── */}
       <NodeCard
         node={node}
         isSelected={node.id === selectedId}
@@ -312,7 +304,6 @@ function BinaryTreeNode({ nodeId, allNodes, selectedId, onSelect, onAdd, onRemov
         onUpdateNode={onUpdateNode}
       />
 
-      {/* ── 추가 폼 ── */}
       {addSide && (
         <div
           className="mt-1.5 p-2 bg-white border rounded-lg shadow-lg text-xs w-44 z-40"
@@ -351,7 +342,6 @@ function BinaryTreeNode({ nodeId, allNodes, selectedId, onSelect, onAdd, onRemov
         </div>
       )}
 
-      {/* ── 자식 연결 ── */}
       {hasChildren && (
         <>
           <div className="flex flex-col items-center" style={{ width: childRowWidth }}>
@@ -423,7 +413,6 @@ function BinaryTreeNode({ nodeId, allNodes, selectedId, onSelect, onAdd, onRemov
   )
 }
 
-// ─── 메인 패널 ──────────────────────────────────────────────────
 export default function OrgTreePanel({
   nodes, selectedId, onSelect, onAdd, onRemove, onChangeRank, onChangeName, onUpdateNode,
   onSaveTree, onLoadTree, onPrintTree, onResetTree,
@@ -448,31 +437,31 @@ export default function OrgTreePanel({
   }, [])
 
   return (
-    <aside className="org-tree-panel bg-white border-r flex flex-col no-print flex-shrink-0 w-1/2" style={{ minWidth: 220 }}>
-      <div className="px-3 py-2 border-b flex items-center justify-between gap-2">
+    <aside className="org-tree-panel bg-white border-b md:border-b-0 md:border-r flex flex-col no-print flex-shrink-0 w-full h-[45vh] md:h-auto md:w-1/2 lg:w-5/12" style={{ minWidth: 220 }}>
+      <div className="px-3 py-2 border-b flex flex-col lg:flex-row lg:items-center justify-between gap-2">
         <div className="min-w-0">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">조직 트리</span>
           <p className="text-[10px] text-gray-400 mt-0.5">직급 클릭 → 변경 · 이름 클릭 → 수정 · 좌·우 → 하위 추가</p>
         </div>
-        <div className="flex gap-2.5 flex-shrink-0">
+        <div className="flex overflow-x-auto lg:overflow-visible gap-2 flex-shrink-0 pb-1 lg:pb-0">
           <button
             onClick={onSaveTree}
-            className="glass-btn h-9 min-w-[108px] px-4"
+            className="glass-btn h-9 min-w-[90px] px-3 text-xs"
             title="조직 구조만 저장 (PV 데이터 제외)"
           >🗂 저장</button>
           <button
             onClick={onLoadTree}
-            className="glass-btn h-9 min-w-[108px] px-4"
+            className="glass-btn h-9 min-w-[90px] px-3 text-xs"
             title="저장된 조직 구조 불러오기"
           >📂 불러오기</button>
           <button
             onClick={onPrintTree}
-            className="glass-btn h-9 min-w-[108px] px-4"
+            className="glass-btn h-9 min-w-[90px] px-3 text-xs"
             title="조직 트리 인쇄"
           >🖨 인쇄</button>
           <button
             onClick={onResetTree}
-            className="glass-btn h-9 min-w-[108px] px-4"
+            className="glass-btn h-9 min-w-[90px] px-3 text-xs"
             title="조직 트리 초기화"
           >♻ 초기화</button>
         </div>

@@ -115,12 +115,12 @@ export default function App() {
       />
       <Header />
 
-      <div className="flex items-center bg-white border-b no-print overflow-x-auto flex-shrink-0">
+      <div className="flex flex-wrap md:flex-nowrap items-center bg-white border-b no-print overflow-x-auto flex-shrink-0">
         <PeriodSelector year={year} month={month} half={half} onChange={setPeriod} />
         <button
           onClick={handleOptimize}
           disabled={!canOptimize}
-          className={`ml-auto mr-3 flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5
+          className={`mt-2 mb-2 ml-3 md:mt-0 md:mb-0 md:ml-auto mr-3 flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5
                      text-sm rounded font-medium ${canOptimize
                        ? 'bg-blue-600 text-white hover:bg-blue-700'
                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
@@ -131,7 +131,7 @@ export default function App() {
         </button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         <OrgTreePanel
           nodes={nodes}
           selectedId={selectedNodeId}
@@ -147,18 +147,20 @@ export default function App() {
           onResetTree={handleResetTree}
         />
 
-        <main className="flex-1 overflow-auto p-4 min-w-0">
+        <main className="flex-1 overflow-auto p-3 md:p-4 min-w-0">
           {selectedNode ? (
             <>
-              <div className="flex flex-wrap items-center gap-3 mb-3">
-                <h2 className="text-base font-bold">{selectedNode.name}</h2>
-                <span className={`text-xs px-2 py-0.5 rounded border ${RANK_BADGE_CLASS[selectedNode.rank] ?? 'bg-gray-100 text-gray-600 border-gray-300'}`}>
-                  {selectedNode.rank}
-                </span>
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold">{selectedNode.name}</h2>
+                  <span className={`text-xs px-2 py-0.5 rounded border ${RANK_BADGE_CLASS[selectedNode.rank] ?? 'bg-gray-100 text-gray-600 border-gray-300'}`}>
+                    {selectedNode.rank}
+                  </span>
+                </div>
 
                 {(selectedNode.rank === 'SSM' || selectedNode.rank === 'SM') && (
-                  <div className="flex items-center gap-2 ml-auto text-xs text-gray-600 flex-wrap rounded-lg border border-sky-100 bg-white px-2 py-1.5 shadow-[0_2px_8px_rgba(2,132,199,0.1)]">
-                    <label className="flex items-center gap-1.5 bg-white/90 border border-sky-100 rounded-md px-2 py-1">
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto md:ml-auto text-xs text-gray-600 rounded-lg border border-sky-100 bg-white px-2 py-1.5 shadow-[0_2px_8px_rgba(2,132,199,0.1)]">
+                    <label className="flex flex-1 sm:flex-none items-center justify-between sm:justify-start gap-1.5 bg-white/90 border border-sky-100 rounded-md px-2 py-1">
                       <span className="text-sky-700 font-medium">좌 목표</span>
                       <input
                         type="number"
@@ -167,7 +169,7 @@ export default function App() {
                         onChange={(e) => updateNode(selectedNode.id, { targetLeft: +e.target.value })}
                       />
                     </label>
-                    <label className="flex items-center gap-1.5 bg-white/90 border border-sky-100 rounded-md px-2 py-1">
+                    <label className="flex flex-1 sm:flex-none items-center justify-between sm:justify-start gap-1.5 bg-white/90 border border-sky-100 rounded-md px-2 py-1">
                       <span className="text-sky-700 font-medium">우 목표</span>
                       <input
                         type="number"
@@ -176,7 +178,7 @@ export default function App() {
                         onChange={(e) => updateNode(selectedNode.id, { targetRight: +e.target.value })}
                       />
                     </label>
-                    <label className="flex items-center gap-1.5 bg-white/90 border border-sky-100 rounded-md px-2 py-1">
+                    <label className="flex flex-1 sm:flex-none items-center justify-between sm:justify-start gap-1.5 bg-white/90 border border-sky-100 rounded-md px-2 py-1">
                       <span className="text-sky-700 font-medium">몸PV 목표</span>
                       <input
                         type="number"
