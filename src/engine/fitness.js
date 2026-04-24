@@ -115,56 +115,52 @@ export function generateSmCandidates(smNode, workdays, allNodes) {
     return [{ scheduleByDate: {} }]
   }
 
-  // phase 조합: (L-phase, R-phase). freeWorkdays 기준으로 배치.
-  // (0,0) = 동일 시점, (0,1) = L→R 이틀매칭, (1,0) = R→L 이틀매칭.
-  // (2,0) / (0,2) = 2일 간격 교차.
-  // (-2,0) / (0,-2) = 마지막 chunk를 앞으로 당기기 (음수 offset, 하한 클램프 적용)
+  // phase 조합: [phaseL, phaseR, sliceL, sliceR]
+  // phaseL/R: pickEvenSpaced offset (양수 = 뒤로, 0 = 중앙)
+  // sliceL/R: freeWorkdays 끝에서 제외할 일수 → 마지막 chunk가 앞으로 당겨짐
+  //           (음수 offset 대신 slice를 쓰면 dedup 없이도 총합이 보장됨)
   const PHASE_COMBOS = [
-    [0, 0],
-    [0, 1],
-    [1, 0],
-    [0, 2],
-    [2, 0],
-    [-2, 0],
-    [0, -2],
+    [0, 0, 0, 0],
+    [0, 1, 0, 0],
+    [1, 0, 0, 0],
+    [0, 2, 0, 0],
+    [2, 0, 0, 0],
+    [0, 0, 2, 0],   // L 마지막 chunk를 2영업일 앞으로
+    [0, 0, 0, 2],   // R 마지막 chunk를 2영업일 앞으로
   ]
 
-  // leftRem/rightRem 배치 위치 후보: 앞(0), 중간(35%), 끝(last)
-  // 기존 동작(last)이 항상 포함되므로 하위 호환성 유지
-  const remPositions = freeWorkdays.length > 0
-    ? [
-        freeWorkdays[0],
-        freeWorkdays[Math.floor(freeWorkdays.length * 0.35)],
-        freeWorkdays[freeWorkdays.length - 1],
-      ].filter(Boolean)
-    : []
-
   const candidates = []
-  for (const [phaseL, phaseR] of PHASE_COMBOS) {
-    for (const remDay of (remPositions.length > 0 ? remPositions : [null])) {
-      const sched = {}
-      for (const wd of workdays) sched[wd.date] = { leftPv: 0, rightPv: 0 }
+  for (const [phaseL, phaseR, sliceL, sliceR] of PHASE_COMBOS) {
+    const sched = {}
+    for (const wd of workdays) sched[wd.date] = { leftPv: 0, rightPv: 0 }
 
-      // 좌 배치 (freeWorkdays 기준)
-      if (matchCountL > 0) {
-        const datesL = pickEvenSpaced(freeWorkdays, matchCountL, phaseL)
-        for (const wd of datesL) sched[wd.date].leftPv += MATCH_UNIT
-      }
-      if (leftRem > 0 && remDay) {
-        sched[remDay.date].leftPv += leftRem
-      }
+    // slice: chunk 수용 가능한 경우에만 적용
+    const daysL = sliceL > 0 && freeWorkdays.length - sliceL >= matchCountL
+      ? freeWorkdays.slice(0, -sliceL)
+      : freeWorkdays
+    const daysR = sliceR > 0 && freeWorkdays.length - sliceR >= matchCountR
+      ? freeWorkdays.slice(0, -sliceR)
+      : freeWorkdays
 
-      // 우 배치 (freeWorkdays 기준)
-      if (matchCountR > 0) {
-        const datesR = pickEvenSpaced(freeWorkdays, matchCountR, phaseR)
-        for (const wd of datesR) sched[wd.date].rightPv += MATCH_UNIT
-      }
-      if (rightRem > 0 && remDay) {
-        sched[remDay.date].rightPv += rightRem
-      }
-
-      candidates.push({ scheduleByDate: sched })
+    // 좌 배치 (freeWorkdays 기준)
+    if (matchCountL > 0) {
+      const datesL = pickEvenSpaced(daysL, matchCountL, phaseL)
+      for (const wd of datesL) sched[wd.date].leftPv += MATCH_UNIT
     }
+    if (leftRem > 0 && freeWorkdays.length > 0) {
+      sched[freeWorkdays[freeWorkdays.length - 1].date].leftPv += leftRem
+    }
+
+    // 우 배치 (freeWorkdays 기준)
+    if (matchCountR > 0) {
+      const datesR = pickEvenSpaced(daysR, matchCountR, phaseR)
+      for (const wd of datesR) sched[wd.date].rightPv += MATCH_UNIT
+    }
+    if (rightRem > 0 && freeWorkdays.length > 0) {
+      sched[freeWorkdays[freeWorkdays.length - 1].date].rightPv += rightRem
+    }
+
+    candidates.push({ scheduleByDate: sched })
   }
 
   // 중복 후보 제거 (phase 포화로 같은 날짜 배열이 나올 수 있음)
@@ -207,12 +203,18 @@ function zoneScore(manValue) {
 
 // 하루치 누적 min(L,R) 값이 '만 단위'로 어느 FITNESS_ZONE에 들어가는지에 따라
 // 점수를 부여하고 전체 합을 반환한다.
+// 불균형 패널티: min이 매칭 임계(30万) 미달인데 max가 60万 이상이면
+// 한쪽만 쏠려 0점이 나는 날을 억제한다.
 export function calculateFitness(dailyRollup) {
   let total = 0
   for (const entry of dailyRollup) {
     if (entry.isSunday) continue
-    const m = Math.min(entry.cumLeft || 0, entry.cumRight || 0) / MAN
-    total += zoneScore(m)
+    const minLR = Math.min(entry.cumLeft || 0, entry.cumRight || 0) / MAN
+    const maxLR = Math.max(entry.cumLeft || 0, entry.cumRight || 0) / MAN
+    total += zoneScore(minLR)
+    if (minLR < MATCH_UNIT && maxLR >= MATCH_UNIT * 2) {
+      total -= (maxLR - minLR)
+    }
   }
   return total
 }
@@ -249,7 +251,7 @@ function applyScheduleToNode(nodes, smNodeId, scheduleByDate) {
 //   - N >  6: beam search (폭 B=20) — SM 하나씩 추가하며 부분 fitness top-B 유지
 //
 // 반환: 최적 조합이 적용된 nodes (변경 없으면 원본).
-export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 20, fullSearchLimit = 5 } = {}) {
+export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 20, fullSearchLimit = 6 } = {}) {
   const owned = findOwnedSmLeaves(dmNode.id, allNodes)
   if (owned.length === 0) return allNodes
 
