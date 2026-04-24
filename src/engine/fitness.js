@@ -73,8 +73,9 @@ function pickEvenSpaced(workdays, count, offset = 0) {
     const idx = Math.max(0, Math.min(workdays.length - 1, Math.round(i * step) + offset))
     out.push(workdays[idx])
   }
-  // 중복 제거 (offset이 커지면 뒤쪽에서 포화 가능)
-  return [...new Set(out)]
+  // dedup 하지 않음: offset 포화로 같은 날이 중복 선택되면
+  // 호출부(+= MATCH_UNIT)가 그날에 여러 chunk를 쌓아 총합을 보장한다.
+  return out
 }
 
 // ═══════════════════════════════════════════════════════════════════
