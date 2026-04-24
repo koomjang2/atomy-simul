@@ -68,13 +68,22 @@ function pickEvenSpaced(workdays, count, offset = 0) {
     return [workdays[idx]]
   }
   const step = (workdays.length - 1) / (count - 1)
+  const used = new Set()
   const out = []
   for (let i = 0; i < count; i++) {
-    const idx = Math.max(0, Math.min(workdays.length - 1, Math.round(i * step) + offset))
+    let idx = Math.max(0, Math.min(workdays.length - 1, Math.round(i * step) + offset))
+    // 중복이면 가장 가까운 미사용 인덱스로 이동 (hi 우선)
+    if (used.has(idx)) {
+      let lo = idx - 1, hi = idx + 1, found = false
+      while (!found && (lo >= 0 || hi < workdays.length)) {
+        if (hi < workdays.length && !used.has(hi)) { idx = hi; found = true }
+        else if (lo >= 0 && !used.has(lo))         { idx = lo; found = true }
+        else { lo--; hi++ }
+      }
+    }
+    used.add(idx)
     out.push(workdays[idx])
   }
-  // dedup 하지 않음: offset 포화로 같은 날이 중복 선택되면
-  // 호출부(+= MATCH_UNIT)가 그날에 여러 chunk를 쌓아 총합을 보장한다.
   return out
 }
 
@@ -148,7 +157,10 @@ export function generateSmCandidates(smNode, workdays, allNodes) {
       for (const wd of datesL) sched[wd.date].leftPv += MATCH_UNIT
     }
     if (leftRem > 0 && freeWorkdays.length > 0) {
-      sched[freeWorkdays[freeWorkdays.length - 1].date].leftPv += leftRem
+      // chunk 없는 마지막 날에 rem 배치 → chunk+rem 합산으로 40万 초과 방지
+      const lRemDay = [...freeWorkdays].reverse().find(d => sched[d.date].leftPv === 0)
+        ?? freeWorkdays[freeWorkdays.length - 1]
+      sched[lRemDay.date].leftPv += leftRem
     }
 
     // 우 배치 (freeWorkdays 기준)
@@ -157,7 +169,9 @@ export function generateSmCandidates(smNode, workdays, allNodes) {
       for (const wd of datesR) sched[wd.date].rightPv += MATCH_UNIT
     }
     if (rightRem > 0 && freeWorkdays.length > 0) {
-      sched[freeWorkdays[freeWorkdays.length - 1].date].rightPv += rightRem
+      const rRemDay = [...freeWorkdays].reverse().find(d => sched[d.date].rightPv === 0)
+        ?? freeWorkdays[freeWorkdays.length - 1]
+      sched[rRemDay.date].rightPv += rightRem
     }
 
     candidates.push({ scheduleByDate: sched })
