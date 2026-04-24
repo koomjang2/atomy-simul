@@ -64,13 +64,13 @@ function pickEvenSpaced(workdays, count, offset = 0) {
   if (count <= 0 || !workdays.length) return []
   if (count >= workdays.length) return [...workdays]
   if (count === 1) {
-    const idx = Math.min(workdays.length - 1, Math.floor((workdays.length - 1) / 2) + offset)
+    const idx = Math.max(0, Math.min(workdays.length - 1, Math.floor((workdays.length - 1) / 2) + offset))
     return [workdays[idx]]
   }
   const step = (workdays.length - 1) / (count - 1)
   const out = []
   for (let i = 0; i < count; i++) {
-    const idx = Math.min(workdays.length - 1, Math.round(i * step) + offset)
+    const idx = Math.max(0, Math.min(workdays.length - 1, Math.round(i * step) + offset))
     out.push(workdays[idx])
   }
   // 중복 제거 (offset이 커지면 뒤쪽에서 포화 가능)
@@ -116,39 +116,54 @@ export function generateSmCandidates(smNode, workdays, allNodes) {
 
   // phase 조합: (L-phase, R-phase). freeWorkdays 기준으로 배치.
   // (0,0) = 동일 시점, (0,1) = L→R 이틀매칭, (1,0) = R→L 이틀매칭.
-  // (2,0) / (0,2) = 2일 간격 교차 — 더 분산된 후보
+  // (2,0) / (0,2) = 2일 간격 교차.
+  // (-2,0) / (0,-2) = 마지막 chunk를 앞으로 당기기 (음수 offset, 하한 클램프 적용)
   const PHASE_COMBOS = [
     [0, 0],
     [0, 1],
     [1, 0],
     [0, 2],
     [2, 0],
+    [-2, 0],
+    [0, -2],
   ]
+
+  // leftRem/rightRem 배치 위치 후보: 앞(0), 중간(35%), 끝(last)
+  // 기존 동작(last)이 항상 포함되므로 하위 호환성 유지
+  const remPositions = freeWorkdays.length > 0
+    ? [
+        freeWorkdays[0],
+        freeWorkdays[Math.floor(freeWorkdays.length * 0.35)],
+        freeWorkdays[freeWorkdays.length - 1],
+      ].filter(Boolean)
+    : []
 
   const candidates = []
   for (const [phaseL, phaseR] of PHASE_COMBOS) {
-    const sched = {}
-    for (const wd of workdays) sched[wd.date] = { leftPv: 0, rightPv: 0 }
+    for (const remDay of (remPositions.length > 0 ? remPositions : [null])) {
+      const sched = {}
+      for (const wd of workdays) sched[wd.date] = { leftPv: 0, rightPv: 0 }
 
-    // 좌 배치 (freeWorkdays 기준)
-    if (matchCountL > 0) {
-      const datesL = pickEvenSpaced(freeWorkdays, matchCountL, phaseL)
-      for (const wd of datesL) sched[wd.date].leftPv += MATCH_UNIT
-    }
-    if (leftRem > 0 && freeWorkdays.length > 0) {
-      sched[freeWorkdays[freeWorkdays.length - 1].date].leftPv += leftRem
-    }
+      // 좌 배치 (freeWorkdays 기준)
+      if (matchCountL > 0) {
+        const datesL = pickEvenSpaced(freeWorkdays, matchCountL, phaseL)
+        for (const wd of datesL) sched[wd.date].leftPv += MATCH_UNIT
+      }
+      if (leftRem > 0 && remDay) {
+        sched[remDay.date].leftPv += leftRem
+      }
 
-    // 우 배치 (freeWorkdays 기준)
-    if (matchCountR > 0) {
-      const datesR = pickEvenSpaced(freeWorkdays, matchCountR, phaseR)
-      for (const wd of datesR) sched[wd.date].rightPv += MATCH_UNIT
-    }
-    if (rightRem > 0 && freeWorkdays.length > 0) {
-      sched[freeWorkdays[freeWorkdays.length - 1].date].rightPv += rightRem
-    }
+      // 우 배치 (freeWorkdays 기준)
+      if (matchCountR > 0) {
+        const datesR = pickEvenSpaced(freeWorkdays, matchCountR, phaseR)
+        for (const wd of datesR) sched[wd.date].rightPv += MATCH_UNIT
+      }
+      if (rightRem > 0 && remDay) {
+        sched[remDay.date].rightPv += rightRem
+      }
 
-    candidates.push({ scheduleByDate: sched })
+      candidates.push({ scheduleByDate: sched })
+    }
   }
 
   // 중복 후보 제거 (phase 포화로 같은 날짜 배열이 나올 수 있음)
@@ -233,7 +248,7 @@ function applyScheduleToNode(nodes, smNodeId, scheduleByDate) {
 //   - N >  6: beam search (폭 B=20) — SM 하나씩 추가하며 부분 fitness top-B 유지
 //
 // 반환: 최적 조합이 적용된 nodes (변경 없으면 원본).
-export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 20, fullSearchLimit = 6 } = {}) {
+export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 20, fullSearchLimit = 5 } = {}) {
   const owned = findOwnedSmLeaves(dmNode.id, allNodes)
   if (owned.length === 0) return allNodes
 
