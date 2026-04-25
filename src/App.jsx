@@ -171,31 +171,30 @@ return (
       <main className="flex-1 p-3 md:p-4 min-w-0 bg-white">
         {selectedNode ? (
           <>
-            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mb-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold">{selectedNode.name}</h2>
-                <span className={`text-xs px-2 py-0.5 rounded border ${RANK_BADGE_CLASS[selectedNode.rank] ?? 'bg-gray-100 text-gray-600 border-gray-300'}`}>
-                  {selectedNode.rank}
-                </span>
-              </div>
-
-              {(selectedNode.rank === 'SSM' || selectedNode.rank === 'SM') && (
-                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto md:ml-auto text-[11px] text-gray-600 rounded-lg border border-sky-100 bg-slate-50 px-2 py-1.5 shadow-sm">
-                  <label className="flex flex-1 sm:flex-none items-center justify-between gap-1 bg-white border border-sky-100 rounded px-1.5 py-0.5">
-                    <span className="text-sky-700 font-medium">좌 목표</span>
-                    <input
-                      type="number"
-                      className="border-none bg-transparent w-12 text-center outline-none"
-                      value={selectedNode.targetLeft}
-                      onChange={(e) => updateNode(selectedNode.id, { targetLeft: +e.target.value })}
-                    />
-                  </label>
-                  {/* ...중략 (우 목표, 몸PV 목표 동일한 스타일 적용) ... */}
-                </div>
-              )}
-            </div>
-
             <div ref={rankPrintAreaRef}>
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold">{selectedNode.name}</h2>
+                  <span className={`text-xs px-2 py-0.5 rounded border ${RANK_BADGE_CLASS[selectedNode.rank] ?? 'bg-gray-100 text-gray-600 border-gray-300'}`}>
+                    {selectedNode.rank}
+                  </span>
+                </div>
+
+                {(selectedNode.rank === 'SSM' || selectedNode.rank === 'SM') && (
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto md:ml-auto text-[11px] text-gray-600 rounded-lg border border-sky-100 bg-slate-50 px-2 py-1.5 shadow-sm">
+                    <label className="flex flex-1 sm:flex-none items-center justify-between gap-1 bg-white border border-sky-100 rounded px-1.5 py-0.5">
+                      <span className="text-sky-700 font-medium">좌 목표</span>
+                      <input
+                        type="number"
+                        className="border-none bg-transparent w-12 text-center outline-none"
+                        value={selectedNode.targetLeft}
+                        onChange={(e) => updateNode(selectedNode.id, { targetLeft: +e.target.value })}
+                      />
+                    </label>
+                    {/* ...중략 (우 목표, 몸PV 목표 동일한 스타일 적용) ... */}
+                  </div>
+                )}
+              </div>
               <RankTable nodeId={selectedNodeId} allNodes={nodes} onUpdateDay={updateDay} />
             </div>
             <ExportButtons
