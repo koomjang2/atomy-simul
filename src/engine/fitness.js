@@ -1,5 +1,5 @@
 import { simulateCumulative, MAN } from './simulate.js'
-import { getLeftSubtree, getRightSubtree, getAllDescendants, sumSubtreePv } from './rollup.js'
+import { getLeftSubtree, getRightSubtree, getAllDescendants, sumSubtreePv, computeNodeSimulation } from './rollup.js'
 
 // ═══════════════════════════════════════════════════════════════════
 // 상수
@@ -287,21 +287,25 @@ export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 
 
   if (varying.length === 0) return baseNodes
 
-  // 평가 함수
+  // 평가 함수 — lexicographic 튜플 [smScore, dmFitness] 반환.
+  // 1순위: 소유 SM들의 자체 점수 합 (사용자 원칙: 하위 직급자 최대점수 절대 우선).
+  // 2순위: DM rollup fitness (SM 점수 동점 시 trap zone 유도용 tiebreak).
   const evaluate = (nodes) => {
     const liveDm = nodes.find((n) => n.id === dmNode.id)
-    if (!liveDm) return -Infinity
-    return calculateFitness(rollupDmDaily(liveDm, nodes))
+    if (!liveDm) return [-Infinity, -Infinity]
+    const smScore = sumOwnedSmScore(dmNode.id, nodes)
+    const dmFit   = calculateFitness(rollupDmDaily(liveDm, nodes))
+    return [smScore, dmFit]
   }
 
   // 완전탐색 (N ≤ fullSearchLimit)
   if (varying.length <= fullSearchLimit) {
-    let best = { fitness: -Infinity, nodes: baseNodes }
+    let best = { fitness: [-Infinity, -Infinity], nodes: baseNodes }
 
     const enumerate = (idx, curNodes) => {
       if (idx === varying.length) {
         const f = evaluate(curNodes)
-        if (f > best.fitness) best = { fitness: f, nodes: curNodes }
+        if (isBetter(f, best.fitness)) best = { fitness: f, nodes: curNodes }
         return
       }
       const { smId, candidates } = varying[idx]
@@ -324,10 +328,39 @@ export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 
         expanded.push({ nodes: next, fitness: evaluate(next) })
       }
     }
-    expanded.sort((a, b) => b.fitness - a.fitness)
+    expanded.sort((a, b) => cmpFitness(b.fitness, a.fitness))
     beam = expanded.slice(0, beamWidth)
   }
   return beam[0]?.nodes ?? baseNodes
+}
+
+// dmNodeId에 직접 소유된 SM/SSM leaf들의 자체 점수 합산.
+// findOwnedSmLeaves가 closestDmAncestor 기준으로 필터하므로 중첩 DM의
+// 하위 SM은 포함되지 않는다 (그쪽은 안쪽 DM이 소유).
+function sumOwnedSmScore(dmNodeId, allNodes) {
+  const owned = findOwnedSmLeaves(dmNodeId, allNodes)
+  let total = 0
+  for (const sm of owned) {
+    const sim = computeNodeSimulation(sm.id, allNodes)
+    for (const day of sim) {
+      if (day.score > 0) total += day.score
+    }
+  }
+  return total
+}
+
+// Lexicographic 비교: a = [smScore, dmFit], b = 동형.
+// SM 점수 우선, 동점이면 DM fitness 비교.
+function isBetter(a, b) {
+  if (a[0] !== b[0]) return a[0] > b[0]
+  return a[1] > b[1]
+}
+
+// sort용 비교 함수 — a > b이면 양수 ('a - b' 의미).
+// 호출 측에서 인자 순서를 뒤집어 descending sort를 얻는다.
+function cmpFitness(a, b) {
+  if (a[0] !== b[0]) return a[0] - b[0]
+  return a[1] - b[1]
 }
 
 // ═══════════════════════════════════════════════════════════════════
