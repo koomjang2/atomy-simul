@@ -421,16 +421,29 @@ export default function OrgTreePanel({
   const treeInnerRef = useRef(null)
 
   async function handleSaveTreeImage() {
+    const container = treePrintRef.current
     const inner = treeInnerRef.current
-    if (!inner) return
-    const prev = inner.style.transform
+    if (!container || !inner) return
+
+    const prevTransform = inner.style.transform
+    const prevOverflow = container.style.overflow
+    const prevWidth = container.style.width
+    const prevHeight = container.style.height
+
     inner.style.transform = 'none'
+    container.style.overflow = 'visible'
+
+    // reflow 대기
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
     try {
       const { toJpeg } = await import('html-to-image')
       const dataUrl = await toJpeg(inner, {
         backgroundColor: '#f8fafc',
         pixelRatio: 2,
         quality: 0.92,
+        width: inner.scrollWidth,
+        height: inner.scrollHeight,
       })
       const a = document.createElement('a')
       a.download = '조직트리.jpg'
@@ -439,7 +452,10 @@ export default function OrgTreePanel({
     } catch (e) {
       alert('이미지 저장 실패: ' + e.message)
     } finally {
-      inner.style.transform = prev
+      inner.style.transform = prevTransform
+      container.style.overflow = prevOverflow
+      container.style.width = prevWidth
+      container.style.height = prevHeight
     }
   }
 

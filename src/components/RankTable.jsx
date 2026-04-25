@@ -43,7 +43,7 @@ function detectFlashout(simDays) {
   return warnings
 }
 
-export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }) {
+export default function RankTable({ nodeId, allNodes, onUpdateDay }) {
   const node = allNodes.find((n) => n.id === nodeId)
 
   const isDMOrAbove = ['DM', 'SRM', 'STM', 'RM', 'CM', 'IM'].includes(node?.rank)
@@ -220,10 +220,14 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
                   <span>{totalCommission.toLocaleString()}원</span>
                   <span>{totalScore}점 ({totalMatch}회)</span>
                 </div>
-                <div className="text-slate-500">
+                <div className="flex flex-wrap gap-x-2">
                   {tierSummary.length
-                    ? tierSummary.map((t) => `${t.score}점 ${t.count}회`).join(' · ')
-                    : '매칭 없음'}
+                    ? tierSummary.map((t) => (
+                        <span key={t.score} className="text-blue-700 whitespace-nowrap">
+                          {t.score}점 <span className="font-bold">{t.count}회</span>
+                        </span>
+                      ))
+                    : <span className="text-slate-400">매칭 없음</span>}
                 </div>
                 <div className="flex items-center gap-1 sm:ml-auto">
                   <span className="inline-block w-2.5 h-2.5 md:w-4 md:h-4 rounded border border-amber-400 bg-white" />
@@ -232,20 +236,6 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onResetDays }
               </div>
             </td>
           </tr>
-          {onResetDays && (
-            <tr>
-              <td className="px-2 py-2 bg-white" colSpan={totalCols}>
-                <button
-                  onClick={() => {
-                    if (window.confirm('이 노드의 입력값을 모두 초기화할까요?')) onResetDays(node.id)
-                  }}
-                  className="text-[9px] md:text-xs px-2 py-1 md:px-3 md:py-1.5 rounded border border-slate-300 text-slate-600 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors"
-                >
-                  입력 초기화
-                </button>
-              </td>
-            </tr>
-          )}
         </tfoot>
       </table>
     </div>

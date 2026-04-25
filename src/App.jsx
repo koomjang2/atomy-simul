@@ -196,8 +196,7 @@ return (
             </div>
 
             <div ref={rankPrintAreaRef}>
-              <RankTable nodeId={selectedNodeId} allNodes={nodes} onUpdateDay={updateDay} onResetDays={resetNodeDays} />
-              <CommissionSummary nodes={nodes} />
+              <RankTable nodeId={selectedNodeId} allNodes={nodes} onUpdateDay={updateDay} />
             </div>
             <ExportButtons
               nodes={nodes}
@@ -205,6 +204,7 @@ return (
               onResetDays={() => resetNodeDays(selectedNodeId)}
               onSaveImage={handleSaveRankTableImage}
             />
+            <CommissionSummary nodes={nodes} />
           </>
         ) : (
           <>
