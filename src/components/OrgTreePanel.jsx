@@ -155,9 +155,8 @@ function NodeCard({ node, isSelected, onSelect, canAddLeft, canAddRight,
 
         {onRemove && (
           <button
-            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 text-[10px]
-                       flex items-center justify-center opacity-0 hover:opacity-100 z-10
-                       peer-hover:opacity-100"
+            className="absolute -top-2 -right-2 bg-gray-300 text-gray-500 rounded-full w-4 h-4 text-[10px]
+                       flex items-center justify-center z-10 opacity-30 hover:opacity-80 transition-opacity"
             style={{ lineHeight: 1 }}
             onClick={(e) => { e.stopPropagation(); onRemove() }}
             title="노드 삭제"
@@ -419,6 +418,30 @@ export default function OrgTreePanel({
 }) {
   const roots = nodes.filter((n) => !n.parentId)
   const treePrintRef = useRef(null)
+  const treeInnerRef = useRef(null)
+
+  async function handleSaveTreeImage() {
+    const inner = treeInnerRef.current
+    if (!inner) return
+    const prev = inner.style.transform
+    inner.style.transform = 'none'
+    try {
+      const { toJpeg } = await import('html-to-image')
+      const dataUrl = await toJpeg(inner, {
+        backgroundColor: '#f8fafc',
+        pixelRatio: 2,
+        quality: 0.92,
+      })
+      const a = document.createElement('a')
+      a.download = '조직트리.jpg'
+      a.href = dataUrl
+      a.click()
+    } catch (e) {
+      alert('이미지 저장 실패: ' + e.message)
+    } finally {
+      inner.style.transform = prev
+    }
+  }
 
   useEffect(() => {
     function handlePrintEvent() {
@@ -446,13 +469,14 @@ return (
          <button onClick={onSaveTree} className="glass-btn h-7 px-2 text-[10px] min-w-fit">🗂 저장</button>
          <button onClick={onLoadTree} className="glass-btn h-7 px-2 text-[10px] min-w-fit">📂 열기</button>
          <button onClick={onPrintTree} className="glass-btn h-7 px-2 text-[10px] min-w-fit">🖨 인쇄</button>
+         <button onClick={handleSaveTreeImage} className="glass-btn h-7 px-2 text-[10px] min-w-fit">🖼 그림저장</button>
          <button onClick={onResetTree} className="glass-btn h-7 px-2 text-[10px] min-w-fit">♻ 초기화</button>
       </div>
     </div>
     
     {/* 모바일에서 트리를 80% 크기로 축소하여 표시 */}
     <div ref={treePrintRef} className="org-tree-print-area overflow-auto flex-1 p-4 bg-slate-50/30">
-      <div className="origin-top transform scale-[0.85] md:scale-100 transition-transform">
+      <div ref={treeInnerRef} className="origin-top transform scale-[0.85] md:scale-100 transition-transform">
         {roots.map((root) => (
           <BinaryTreeNode
             key={root.id}

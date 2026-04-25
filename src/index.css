@@ -29,27 +29,39 @@
 @media print {
   .no-print { display: none !important; }
   .print-only { display: block !important; }
-  body.print-org-tree-mode * {
-    visibility: hidden !important;
-  }
-  body.print-org-tree-mode .org-tree-print-area,
-  body.print-org-tree-mode .org-tree-print-area * {
-    visibility: visible !important;
-  }
+
+  /* 조직트리 인쇄 모드 */
+  body.print-org-tree-mode * { visibility: hidden !important; }
+
   body.print-org-tree-mode .org-tree-panel.no-print {
     display: block !important;
     visibility: visible !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: max-content !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  body.print-org-tree-mode .org-tree-panel.no-print > *:first-child {
+    display: none !important;
   }
   body.print-org-tree-mode .org-tree-print-area {
-    position: fixed !important;
-    inset: 10mm !important;
+    display: block !important;
+    visibility: visible !important;
     overflow: visible !important;
-    background: #fff !important;
-    z-index: 99999 !important;
-    width: auto !important;
     height: auto !important;
-    padding: 0 !important;
-    transform: none !important;
-    opacity: 1 !important;
+    max-height: none !important;
+    flex: none !important;
+    width: max-content !important;
+    background: #fff !important;
   }
+  body.print-org-tree-mode .org-tree-print-area * {
+    visibility: visible !important;
+  }
+  body.print-org-tree-mode .org-tree-print-area > div {
+    transform: none !important;
+  }
+
+  @page { size: auto; margin: 8mm; }
 }

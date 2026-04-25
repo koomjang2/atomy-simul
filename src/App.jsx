@@ -28,6 +28,26 @@ export default function App() {
   const { year, month, half, nodes, selectedNodeId } = state
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
   const loadTreeInputRef = useRef(null)
+  const rankPrintAreaRef = useRef(null)
+
+  async function handleSaveRankTableImage() {
+    const el = rankPrintAreaRef.current
+    if (!el || !selectedNode) return
+    try {
+      const { toJpeg } = await import('html-to-image')
+      const dataUrl = await toJpeg(el, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        quality: 0.92,
+      })
+      const a = document.createElement('a')
+      a.download = `${selectedNode.name}_계획표.jpg`
+      a.href = dataUrl
+      a.click()
+    } catch (e) {
+      alert('이미지 저장 실패: ' + e.message)
+    }
+  }
 
   const canOptimize = nodes.some((n) => n.rank === 'SM' || n.rank === 'SSM')
 
@@ -175,13 +195,23 @@ return (
               )}
             </div>
 
-            <RankTable nodeId={selectedNodeId} allNodes={nodes} onUpdateDay={updateDay} onResetDays={resetNodeDays} />
-            <ExportButtons nodes={nodes} selectedNode={selectedNode} state={state} onLoad={loadState} />
+            <div ref={rankPrintAreaRef}>
+              <RankTable nodeId={selectedNodeId} allNodes={nodes} onUpdateDay={updateDay} onResetDays={resetNodeDays} />
+              <CommissionSummary nodes={nodes} />
+            </div>
+            <ExportButtons
+              nodes={nodes}
+              selectedNode={selectedNode}
+              onResetDays={() => resetNodeDays(selectedNodeId)}
+              onSaveImage={handleSaveRankTableImage}
+            />
           </>
         ) : (
-          <p className="text-gray-400 p-10 text-center">좌측 트리에서 노드를 선택하세요.</p>
+          <>
+            <p className="text-gray-400 p-10 text-center">좌측 트리에서 노드를 선택하세요.</p>
+            <CommissionSummary nodes={nodes} />
+          </>
         )}
-        <CommissionSummary nodes={nodes} />
       </main>
     </div>
   </div>
