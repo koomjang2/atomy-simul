@@ -47,7 +47,8 @@ export function computeNodeSimulation(nodeId, allNodes) {
   return simulateCumulative(node.days, {
     getDailyLeft:  (day) => (day.leftPv || 0) * MAN + sumSubtreePv(leftSub, day.date),
     getDailyRight: (day) => (day.rightPv || 0) * MAN + sumSubtreePv(rightSub, day.date),
-    // DM 이상은 본인 몸PV 0. SSM/SM은 자신의 날짜별 bodyPv를 약한 쪽에 합산.
-    getBodyPv:     (day) => (isDMOrAbove ? 0 : (day.bodyPv || 0) * MAN),
+    // 모든 직급에서 bodyPv는 일별 매칭 점수에 관여 안 함.
+    // bodyPv는 상위 노드 롤업(sumSubtreePv)과 직급달성 검사(checkSM)에만 사용.
+    getBodyPv:     () => 0,
   })
 }
