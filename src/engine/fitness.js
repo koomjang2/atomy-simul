@@ -10,6 +10,10 @@ export const BODY_CHUNK = 10  // 10만 PV — 몸PV 분할 최소 단위
 const SM_RANKS = ['SSM', 'SM']
 const DM_RANKS = ['DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
 
+// [추가된 상수] 이틀 매칭 셋업을 위한 허용 임계치 및 매일 수당 보너스 상수
+export const STRANDED_THRESHOLD = 3;  // N영업일 이상 불균형 지속될 때만 penalty 부과
+export const DAILY_PAYOUT_BONUS = 8;  // 점수 발생일 1일당 보너스 부여 (DM의 매일 수당 발생 유도)
+
 // Threshold Trap 전략: DM의 일일 누적 min(L,R)가 다음 tier 경계 직전에
 // 머물면 파트너 초과 PV + 자연발생 PV가 보태졌을 때 한 단계 위 수당으로
 // 점프할 수 있는 '그물'이 된다. 구간별 가중치는 사용자 튜닝 대상.
@@ -215,19 +219,31 @@ function zoneScore(manValue) {
   return 0
 }
 
-// 하루치 누적 min(L,R) 값이 '만 단위'로 어느 FITNESS_ZONE에 들어가는지에 따라
-// 점수를 부여하고 전체 합을 반환한다.
-// 불균형 패널티: min이 매칭 임계(30万) 미달인데 max가 60万 이상이면
-// 한쪽만 쏠려 0점이 나는 날을 억제한다.
+// [수정된 부분] 매일 수당 보너스 및 N일 방치 패널티 로직이 적용된 함수
 export function calculateFitness(dailyRollup) {
   let total = 0
+  let strandedDays = 0 // 추가된 변수: 한쪽으로만 점수가 쌓여 매칭이 안되는 일수 카운트
+  
   for (const entry of dailyRollup) {
     if (entry.isSunday) continue
+    
     const minLR = Math.min(entry.cumLeft || 0, entry.cumRight || 0) / MAN
     const maxLR = Math.max(entry.cumLeft || 0, entry.cumRight || 0) / MAN
+    
     total += zoneScore(minLR)
-    if (minLR < MATCH_UNIT && maxLR >= MATCH_UNIT * 2) {
-      total -= (maxLR - minLR)
+    
+    // 수당 발생 및 패널티 억제 로직
+    if ((entry.score || 0) > 0) {
+      total += DAILY_PAYOUT_BONUS // 수당 발생 시 보너스 추가
+      strandedDays = 0 // 정체 일수 초기화
+    } else if (minLR < MATCH_UNIT && maxLR >= MATCH_UNIT * 2) {
+      strandedDays++
+      // 정체 일수가 STRANDED_THRESHOLD(3일) 이상 지속될 때만 패널티 부과
+      if (strandedDays >= STRANDED_THRESHOLD) {
+        total -= (maxLR - minLR)
+      }
+    } else {
+      strandedDays = 0 // 정상 밸런스일 경우 정체 일수 초기화
     }
   }
   return total
