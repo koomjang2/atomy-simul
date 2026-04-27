@@ -59,33 +59,19 @@ function getDepth(nodeId, allNodes) {
   return depth
 }
 
-// workdays 배열에서 count개를 균등 간격으로 선택. offset만큼 시작점을 밀어
-// 같은 SM이라도 여러 phase candidate를 생성할 수 있게 한다.
+// workdays 배열에서 count개를 균등 간격으로 선택.
+// [수정] count가 영업일보다 많아도 점수를 삭제하지 않고, 한 날짜에 여러 번(중첩) 분배하도록 완벽히 수정.
 function pickEvenSpaced(workdays, count, offset = 0) {
-  if (count <= 0 || !workdays.length) return []
-  if (count >= workdays.length) return [...workdays]
-  if (count === 1) {
-    const idx = Math.max(0, Math.min(workdays.length - 1, Math.floor((workdays.length - 1) / 2) + offset))
-    return [workdays[idx]]
-  }
-  const step = (workdays.length - 1) / (count - 1)
-  const used = new Set()
-  const out = []
+  if (count <= 0 || !workdays.length) return [];
+  const out = [];
+  const len = workdays.length;
   for (let i = 0; i < count; i++) {
-    let idx = Math.max(0, Math.min(workdays.length - 1, Math.round(i * step) + offset))
-    // 중복이면 가장 가까운 미사용 인덱스로 이동 (hi 우선)
-    if (used.has(idx)) {
-      let lo = idx - 1, hi = idx + 1, found = false
-      while (!found && (lo >= 0 || hi < workdays.length)) {
-        if (hi < workdays.length && !used.has(hi)) { idx = hi; found = true }
-        else if (lo >= 0 && !used.has(lo))         { idx = lo; found = true }
-        else { lo--; hi++ }
-      }
-    }
-    used.add(idx)
-    out.push(workdays[idx])
+    // 점수를 균등하게 쪼개면서 남는 점수 없이 무한 회전 배치
+    let pos = (i * len) / count + offset;
+    let idx = (Math.floor(pos) % len + len) % len; // 안전한 순환 로직
+    out.push(workdays[idx]);
   }
-  return out
+  return out;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -126,18 +112,19 @@ export function generateSmCandidates(smNode, workdays, allNodes) {
   }
 
   // phase 조합: [phaseL, phaseR, sliceL, sliceR]
-  // 기존에는 파트너의 좌/우를 서로 찢는 옵션만 있어서 점수 소멸 위험이 있었습니다.
-  // 아래와 같이 '좌/우를 동시에 N일 뒤로 미루는' 마법의 조합을 추가합니다.
+  // [수정] AI가 상위 DM의 스케줄을 방어하면서도 중간 SM을 살릴 수 있도록 유연한 퍼즐을 대폭 추가
   const PHASE_COMBOS = [
-    [0, 0, 0, 0],   // 정석 배치 (기준 - 1번 파트너용)
-    [1, 1, 0, 0],   // ★ 좌/우 동시 1일 연기 (2번 파트너용: 점수 소멸 없이 스폰서의 다음 날을 채움)
-    [2, 2, 0, 0],   // ★ 좌/우 동시 2일 연기 (3번 파트너용)
-    [3, 3, 0, 0],   // ★ 좌/우 동시 3일 연기 (4번 파트너용)
-    [0, 1, 0, 0],   // 좌우 이틀 징검다리
-    [1, 0, 0, 0],   // 우좌 이틀 징검다리
-    [1, 2, 0, 0],   // 변칙 징검다리
-    [0, 0, 1, 1],   // 전체 일정 압축 (월말 타겟용)
-    [0, 0, 2, 2],   // 전체 일정 강하게 압축
+    [0, 0, 0, 0],
+    [1, 1, 0, 0],
+    [2, 2, 0, 0],
+    [3, 3, 0, 0],
+    [4, 4, 0, 0], // 통째로 미루기 폭 확장
+    [0, 1, 0, 0],
+    [1, 0, 0, 0],
+    [0, 2, 0, 0],
+    [2, 0, 0, 0],
+    [1, 2, 0, 0],
+    [2, 1, 0, 0], // 변칙 엇갈리기 추가
   ]
 
   const candidates = []
@@ -304,12 +291,16 @@ export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 
   // 평가 함수 — lexicographic 튜플 [smScore, dmFitness] 반환.
   // 1순위: 소유 SM들의 자체 점수 합 (사용자 원칙: 하위 직급자 최대점수 절대 우선).
   // 2순위: DM rollup fitness (SM 점수 동점 시 trap zone 유도용 tiebreak).
+  // [로직 변경] 평가 배열을 3단계로 확장 [1순위 돈, 2순위 DM달력, 3순위 매칭횟수]
   const evaluate = (nodes) => {
     const liveDm = nodes.find((n) => n.id === dmNode.id)
-    if (!liveDm) return [-Infinity, -Infinity]
+    if (!liveDm) return [-Infinity, -Infinity, -Infinity]
+    
     const smScore = sumOwnedSmScore(dmNode.id, nodes)
     const dmFit   = calculateFitness(rollupDmDaily(liveDm, nodes))
-    return [smScore, dmFit]
+    const smFreq  = sumOwnedSmMatchCount(dmNode.id, nodes) // 3순위 횟수
+    
+    return [smScore, dmFit, smFreq]
   }
 
   // 완전탐색 (N ≤ fullSearchLimit)
@@ -348,37 +339,32 @@ export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 
   return beam[0]?.nodes ?? baseNodes
 }
 
-// dmNodeId에 직접 소유된 SM/SSM leaf들의 자체 점수 합산.
-function sumOwnedSmScore(dmNodeId, allNodes) {
+// [새로 추가] 3순위 평가를 위한 '매칭 횟수' 전용 계산 함수
+function sumOwnedSmMatchCount(dmNodeId, allNodes) {
   const owned = findOwnedSmLeaves(dmNodeId, allNodes)
-  let total = 0
+  let count = 0
   for (const sm of owned) {
     const sim = computeNodeSimulation(sm.id, allNodes)
     for (const day of sim) {
-      if (day.score > 0) {
-        total += day.score // 1순위: 원래 애터미 수당 점수 (15, 30 등)
-        
-        // [실험적 추가] 매칭 횟수 가산점 (0.1점)
-        // AI에게 "점수가 같으면 무조건 30만씩 여러 번(매일) 받아서 플래시아웃을 줄여라!"라고 명령합니다.
-        total += 0.1 
-      }
+      if (day.score > 0) count += 1
     }
   }
-  return total
+  return count
 }
 
 // Lexicographic 비교: a = [smScore, dmFit], b = 동형.
 // SM 점수 우선, 동점이면 DM fitness 비교.
+// 비교 로직도 3단계에 맞춰 수정
 function isBetter(a, b) {
-  if (a[0] !== b[0]) return a[0] > b[0]
-  return a[1] > b[1]
+  if (a[0] !== b[0]) return a[0] > b[0] // 1순위 비교
+  if (a[1] !== b[1]) return a[1] > b[1] // 2순위 비교
+  return a[2] > b[2]                    // 3순위 비교
 }
 
-// sort용 비교 함수 — a > b이면 양수 ('a - b' 의미).
-// 호출 측에서 인자 순서를 뒤집어 descending sort를 얻는다.
 function cmpFitness(a, b) {
   if (a[0] !== b[0]) return a[0] - b[0]
-  return a[1] - b[1]
+  if (a[1] !== b[1]) return a[1] - b[1]
+  return a[2] - b[2]
 }
 
 // ═══════════════════════════════════════════════════════════════════
