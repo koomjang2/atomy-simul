@@ -279,7 +279,7 @@ function applyScheduleToNode(nodes, smNodeId, scheduleByDate) {
 //   - N >  6: beam search (폭 B=20) — SM 하나씩 추가하며 부분 fitness top-B 유지
 //
 // 반환: 최적 조합이 적용된 nodes (변경 없으면 원본).
-export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 20, fullSearchLimit = 6 } = {}) {
+export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 30, fullSearchLimit = 6 } = {}) {
   const owned = findOwnedSmLeaves(dmNode.id, allNodes)
   if (owned.length === 0) return allNodes
 
@@ -349,15 +349,19 @@ export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 
 }
 
 // dmNodeId에 직접 소유된 SM/SSM leaf들의 자체 점수 합산.
-// findOwnedSmLeaves가 closestDmAncestor 기준으로 필터하므로 중첩 DM의
-// 하위 SM은 포함되지 않는다 (그쪽은 안쪽 DM이 소유).
 function sumOwnedSmScore(dmNodeId, allNodes) {
   const owned = findOwnedSmLeaves(dmNodeId, allNodes)
   let total = 0
   for (const sm of owned) {
     const sim = computeNodeSimulation(sm.id, allNodes)
     for (const day of sim) {
-      if (day.score > 0) total += day.score
+      if (day.score > 0) {
+        total += day.score // 1순위: 원래 애터미 수당 점수 (15, 30 등)
+        
+        // [실험적 추가] 매칭 횟수 가산점 (0.1점)
+        // AI에게 "점수가 같으면 무조건 30만씩 여러 번(매일) 받아서 플래시아웃을 줄여라!"라고 명령합니다.
+        total += 0.1 
+      }
     }
   }
   return total
