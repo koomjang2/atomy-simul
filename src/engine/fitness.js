@@ -10,22 +10,19 @@ export const BODY_CHUNK = 10  // 10만 PV — 몸PV 분할 최소 단위
 const SM_RANKS = ['SSM', 'SM']
 const DM_RANKS = ['DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
 
-// [추가된 상수] 이틀 매칭 셋업을 위한 허용 임계치 및 매일 수당 보너스 상수
+// [수정 핵심 1] 매일 수당 보너스를 압도적으로 높임 (8 -> 100)
 export const STRANDED_THRESHOLD = 3;  // N영업일 이상 불균형 지속될 때만 penalty 부과
-export const DAILY_PAYOUT_BONUS = 8;  // 점수 발생일 1일당 보너스 부여 (DM의 매일 수당 발생 유도)
+export const DAILY_PAYOUT_BONUS = 100; // ★ 이틀 매칭을 무조건 유도하는 마법의 숫자 ★
 
-// Threshold Trap 전략: DM의 일일 누적 min(L,R)가 다음 tier 경계 직전에
-// 머물면 파트너 초과 PV + 자연발생 PV가 보태졌을 때 한 단계 위 수당으로
-// 점프할 수 있는 '그물'이 된다. 구간별 가중치는 사용자 튜닝 대상.
-//
-// 판정값 m은 '만 단위'이며 [min, max) 구간이다.
+// [수정 핵심 2] FITNESS_ZONES 밸런스 패치
+// 30만 매칭의 가치를 높이고, 60만/140만의 가치를 조정하여 매일 끊기지 않는 수당을 최우선으로 유도.
 export const FITNESS_ZONES = [
-  { min: 30,  max: 40,  score: +10, label: 'tier1_safe'  }, // 30만 매칭 확보
-  { min: 40,  max: 60,  score: -20, label: 'waste_low'   }, // 60만 trap 닿기 애매
-  { min: 60,  max: 70,  score: +50, label: 'tier2_trap'  }, // ★ 70만/30점 점프 가능
-  { min: 70,  max: 80,  score:   0, label: 'tier2_safe'  }, // tier2 확보, trap 없음
-  { min: 80,  max: 140, score: -20, label: 'waste_mid'   }, // 150만 trap 너무 멀음
-  { min: 140, max: 150, score: +40, label: 'tier3_trap'  }, // ★ 150만/60점 점프 가능
+  { min: 30,  max: 40,  score: +20, label: 'tier1_safe'  }, // 30만 매칭 확보 (매일 보너스 100점이 더해지면 무조건 이득)
+  { min: 40,  max: 60,  score: -20, label: 'waste_low'   }, // 애매한 점수 지양
+  { min: 60,  max: 70,  score: +30, label: 'tier2_trap'  }, // 60만 트랩 (보너스 포함해도 30만 이틀(120점*2) 분할을 못 이기게 세팅)
+  { min: 70,  max: 80,  score:   0, label: 'tier2_safe'  }, 
+  { min: 80,  max: 140, score: -20, label: 'waste_mid'   }, 
+  { min: 140, max: 150, score: +50, label: 'tier3_trap'  }, // 140만 트랩 (자연발생 PV를 노리는 고점수 부여)
 ]
 
 // ═══════════════════════════════════════════════════════════════════
