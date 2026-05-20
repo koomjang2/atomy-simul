@@ -152,7 +152,18 @@ export default function App() {
   const canOptimize = nodes.some((n) => n.rank === 'SM' || n.rank === 'SSM')
 
   function handleOptimize() {
-    const optimized = runOptimization(nodes, year, month, half)
+    // 수동 입력(locked/manual 플래그 + PV값) 전부 초기화 후 전체 재최적화.
+    // 옵티마이저는 locked 셀을 보존하므로 여기서 미리 풀어줘야 한다.
+    pushUndoSnapshot(JSON.parse(JSON.stringify(state)))
+    const cleanNodes = nodes.map((n) => ({
+      ...n,
+      days: (n.days || []).map((d) => ({
+        ...d,
+        leftPv: 0, rightPv: 0, bodyPv: 0,
+        locked: false, manualLeft: false, manualRight: false, manualBody: false,
+      })),
+    }))
+    const optimized = runOptimization(cleanNodes, year, month, half)
     applyOptimization(optimized)
   }
 
