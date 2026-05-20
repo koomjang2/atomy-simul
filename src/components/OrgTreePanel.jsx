@@ -519,11 +519,10 @@ export default function OrgTreePanel({
       if (!s.active) return
       const dx = e.clientX - s.startX
       const dy = e.clientY - s.startY
-      // 사용자 요구: 마우스가 움직인 방향과 반대로 트리가 이동
-      //   마우스↑ (dy<0) → 트리↓ → translateY > 0 → -dy > 0  ✓
-      //   마우스← (dx<0) → 트리→ → translateX > 0 → -dx > 0  ✓
-      s.panX = s.panStartX - dx
-      s.panY = s.panStartY - dy
+      // 사용자 요구: 마우스 이동 방향과 반대로 트리 이동 (스크롤바 푸시)
+      //   2026-05-21 부호 뒤집음: 직전 -dx/-dy 가 의도와 반대로 동작한다는 사용자 피드백
+      s.panX = s.panStartX + dx
+      s.panY = s.panStartY + dy
       applyPanTransform()
     }
     function onUp() {
