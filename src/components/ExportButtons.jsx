@@ -63,7 +63,7 @@ export default function ExportButtons({ nodes, selectedNode, onResetToOptimize, 
           ${hasUndo 
             ? 'bg-amber-50/90 text-amber-700 border border-amber-300 hover:bg-amber-100 font-bold shadow-sm' 
             : 'opacity-40 cursor-not-allowed text-slate-400'}`}
-        title="스낵바가 닫혀도 직전 수동 입력 또는 초기화 작업을 최대 5단계까지 되돌릴 수 있습니다."
+        title="스낵바가 닫혀도 직전 수동 입력 또는 초기화 작업을 최대 30단계까지 되돌릴 수 있습니다."
       >
         <Undo2 size={14} /> 되돌리기{hasUndo ? ` (${undoCount})` : ''}
       </button>

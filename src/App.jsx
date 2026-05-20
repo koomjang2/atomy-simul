@@ -32,7 +32,7 @@ export default function App() {
   const rankPrintAreaRef = useRef(null)
 
   // --- 연쇄 반응 스낵바 및 되돌리기 상태 관리 ---
-  const UNDO_LIMIT = 5
+  const UNDO_LIMIT = 30
   const [snackbar, setSnackbar] = useState({ isOpen: false, changes: [] })
   const [undoCount, setUndoCount] = useState(0) // 스택 깊이 (UI 활성화 판단용)
   const undoStackRef = useRef([])               // 최근 5개의 직전 상태 스냅샷 (가장 최근이 마지막)
