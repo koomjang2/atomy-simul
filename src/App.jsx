@@ -32,11 +32,21 @@ export default function App() {
   const rankPrintAreaRef = useRef(null)
 
   // --- 연쇄 반응 스낵바 및 되돌리기 상태 관리 ---
+  const UNDO_LIMIT = 5
   const [snackbar, setSnackbar] = useState({ isOpen: false, changes: [] })
-  const [hasUndo, setHasUndo] = useState(false) // 🔴 추가: 되돌리기 활성화 상태 관리
-  const undoStateRef = useRef(null)
+  const [undoCount, setUndoCount] = useState(0) // 스택 깊이 (UI 활성화 판단용)
+  const undoStackRef = useRef([])               // 최근 5개의 직전 상태 스냅샷 (가장 최근이 마지막)
   const beforeMetricsRef = useRef(null)
   const isManualAction = useRef(false)
+  const hasUndo = undoCount > 0
+
+  // 직전 상태를 스택에 push. 5개 초과 시 가장 오래된 것 제거.
+  const pushUndoSnapshot = (snapshot) => {
+    const stack = undoStackRef.current
+    stack.push(snapshot)
+    if (stack.length > UNDO_LIMIT) stack.shift()
+    setUndoCount(stack.length)
+  }
 
   // 1. 특정 시점의 모든 노드 점수/매칭 횟수 계산 함수
   const calculateAllNodesMetrics = (currentNodes) => {
@@ -52,9 +62,8 @@ export default function App() {
 
   // 2. 사용자가 엔터/포커스아웃으로 값을 확정(Commit)했을 때
   const handleUpdateDayWithUndo = (nodeId, date, field, val) => {
-    // 변경 전 전체 조직도 상태와 수당 결과를 백업
-    undoStateRef.current = JSON.parse(JSON.stringify(state))
-    setHasUndo(true) // 🔴 추가: 되돌리기 버튼 활성화
+    // 변경 전 전체 조직도 상태와 수당 결과를 백업 (최대 5단계까지 누적)
+    pushUndoSnapshot(JSON.parse(JSON.stringify(state)))
     beforeMetricsRef.current = calculateAllNodesMetrics(state.nodes)
     isManualAction.current = true
 
@@ -92,21 +101,20 @@ export default function App() {
     }
   }, [nodes])
 
-  // 4. 되돌리기 실행
+  // 4. 되돌리기 실행 — 스택 top 1단계만 복원 (반복 호출 시 최대 5단계)
   const handleUndo = () => {
-    if (undoStateRef.current) {
-      loadState(undoStateRef.current)
-      setSnackbar({ isOpen: false, changes: [] })
-      undoStateRef.current = null
-      setHasUndo(false) // 🔴 추가: 되돌리기 완료 후 버튼 비활성화
-    }
+    const stack = undoStackRef.current
+    if (stack.length === 0) return
+    const prev = stack.pop()
+    loadState(prev)
+    setSnackbar({ isOpen: false, changes: [] })
+    setUndoCount(stack.length)
   }
-  
+
   // 5. 🔴 새로 추가된 로직: 수동 입력값을 지우고 자동 최적화 상태로 덮어쓰기
   const handleResetToOptimize = () => {
     // 만약을 위해 이 작업도 '되돌리기'가 가능하도록 백업
-    undoStateRef.current = JSON.parse(JSON.stringify(state));
-    setHasUndo(true);
+    pushUndoSnapshot(JSON.parse(JSON.stringify(state)));
     setSnackbar({ isOpen: false, changes: [] }); // 열려있는 스낵바 닫기
 
     // nodes를 깊은 복사하여 해당 노드의 수동 기록(days)을 완전히 날림
@@ -308,6 +316,7 @@ export default function App() {
                 onSaveImage={handleSaveRankTableImage}
                 onUndo={handleUndo}
                 hasUndo={hasUndo}
+                undoCount={undoCount}
               />
               <CommissionSummary nodes={nodes} />
             </>

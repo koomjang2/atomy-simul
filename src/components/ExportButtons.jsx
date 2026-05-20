@@ -29,7 +29,7 @@ function buildRows(selectedNode, nodes) {
 }
 
 // 부모 컴포넌트(App.jsx)로부터 상시 되돌리기를 위한 onUndo, hasUndo 속성과 수정된 초기화용 onResetToOptimize를 전달받습니다.
-export default function ExportButtons({ nodes, selectedNode, onResetToOptimize, onSaveImage, onUndo, hasUndo }) {
+export default function ExportButtons({ nodes, selectedNode, onResetToOptimize, onSaveImage, onUndo, hasUndo, undoCount = 0 }) {
 
   function handleCopy() {
     if (!selectedNode) return
@@ -63,9 +63,9 @@ export default function ExportButtons({ nodes, selectedNode, onResetToOptimize, 
           ${hasUndo 
             ? 'bg-amber-50/90 text-amber-700 border border-amber-300 hover:bg-amber-100 font-bold shadow-sm' 
             : 'opacity-40 cursor-not-allowed text-slate-400'}`}
-        title="스낵바가 닫혀도 직전 수동 입력 또는 초기화 작업을 언제든 되돌릴 수 있습니다."
+        title="스낵바가 닫혀도 직전 수동 입력 또는 초기화 작업을 최대 5단계까지 되돌릴 수 있습니다."
       >
-        <Undo2 size={14} /> 되돌리기
+        <Undo2 size={14} /> 되돌리기{hasUndo ? ` (${undoCount})` : ''}
       </button>
 
       {/* 2. 기존 기능 유지: 표 복사 버튼 */}

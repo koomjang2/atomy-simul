@@ -305,7 +305,7 @@ export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 
 
   // 완전탐색 (N ≤ fullSearchLimit)
   if (varying.length <= fullSearchLimit) {
-    let best = { fitness: [-Infinity, -Infinity], nodes: baseNodes }
+    let best = { fitness: [-Infinity, -Infinity, -Infinity], nodes: baseNodes }
 
     const enumerate = (idx, curNodes) => {
       if (idx === varying.length) {
@@ -337,6 +337,17 @@ export function searchBestCombination(dmNode, allNodes, workdays, { beamWidth = 
     beam = expanded.slice(0, beamWidth)
   }
   return beam[0]?.nodes ?? baseNodes
+}
+
+// 1순위 평가: 소유 SM들의 자체 점수 합 (사용자 원칙 — 하위 직급자 절대 우선)
+function sumOwnedSmScore(dmNodeId, allNodes) {
+  const owned = findOwnedSmLeaves(dmNodeId, allNodes)
+  let total = 0
+  for (const sm of owned) {
+    const sim = computeNodeSimulation(sm.id, allNodes)
+    for (const day of sim) total += day.score || 0
+  }
+  return total
 }
 
 // [새로 추가] 3순위 평가를 위한 '매칭 횟수' 전용 계산 함수
