@@ -1,9 +1,49 @@
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { computeNodeSimulation, getLeftSubtree, getRightSubtree } from '../engine/rollup.js'
 import { checkRank } from '../engine/rankLogic.js'
 import { N_VALUE, SCORE_TIERS } from '../engine/pvRules.js'
 
-// 서브트리 노드들의 보름 총합 PV 계산
+// --- 새롭게 추가된 로컬 입력 컴포넌트 (엔터/포커스 아웃 시 확정) ---
+function PVInput({ value, onCommit, manualFlag }) {
+  const [localVal, setLocalVal] = useState(value || '')
+
+  // 외부(되돌리기 등)에서 값이 바뀌면 동기화
+  useEffect(() => {
+    setLocalVal(value || '')
+  }, [value])
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.target.blur() // 엔터 누르면 포커스 아웃시켜 onBlur 트리거
+    }
+  }
+
+  const handleBlur = () => {
+    const parsed = parseInt(localVal, 10)
+    const validVal = isNaN(parsed) ? 0 : parsed
+    // 값이 실제로 변경되었을 때만 Commit (계산 실행)
+    if (validVal !== (value || 0)) {
+      onCommit(validVal)
+    }
+  }
+
+  return (
+    <input
+      type="number" min={0}
+      className={`w-full text-center rounded px-0.5 py-0.5 md:px-1 outline-none text-[10px] md:text-sm transition-colors
+        ${manualFlag
+          ? 'bg-white border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
+          : 'bg-white border border-slate-200 focus:border-sky-400 focus:ring-1 focus:ring-sky-400'}`}
+      value={localVal}
+      onChange={(e) => setLocalVal(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      placeholder="0"
+    />
+  )
+}
+// ----------------------------------------------------------------
+
 function subTreePeriodTotal(subNodes) {
   return subNodes.reduce((sum, sub) =>
     sum + (sub.days?.reduce((s, d) => s + (d.leftPv || 0) + (d.rightPv || 0) + (d.bodyPv || 0), 0) ?? 0), 0)
@@ -43,7 +83,7 @@ function detectFlashout(simDays) {
   return warnings
 }
 
-export default function RankTable({ nodeId, allNodes, onUpdateDay, onMetricsChange }) {
+export default function RankTable({ nodeId, allNodes, onUpdateDay }) {
   const node = allNodes.find((n) => n.id === nodeId)
 
   const isDMOrAbove = ['DM', 'SRM', 'STM', 'RM', 'CM', 'IM'].includes(node?.rank)
@@ -81,35 +121,8 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onMetricsChan
       ? checkRank(node.rank, periodLeft, periodRight, periodBody)
       : null
 
-  // --- 수동 입력 변화량 감지 로직 시작 ---
-  const prevStats = useRef({ score: null, match: null, nodeId: null })
-
-  useEffect(() => {
-    // 노드 자체가 바뀐 경우는 비교하지 않고 초기값만 세팅
-    if (prevStats.current.nodeId !== node?.id) {
-      prevStats.current = { score: totalScore, match: totalMatch, nodeId: node?.id }
-      return
-    }
-
-    // 점수나 매칭 횟수가 바뀌었을 때만 상위 컴포넌트로 알림
-    if (
-      prevStats.current.score !== null &&
-      (prevStats.current.score !== totalScore || prevStats.current.match !== totalMatch)
-    ) {
-      onMetricsChange?.(
-        node?.name,
-        prevStats.current.score, totalScore,
-        prevStats.current.match, totalMatch
-      )
-    }
-    
-    prevStats.current = { score: totalScore, match: totalMatch, nodeId: node?.id }
-  }, [totalScore, totalMatch, node?.id, node?.name, onMetricsChange])
-  // --- 수동 입력 변화량 감지 로직 끝 ---
-
-  function handleInput(date, field, raw) {
-    const val = parseInt(raw, 10)
-    onUpdateDay(node.id, date, field, isNaN(val) ? 0 : val)
+  function handleCommit(date, field, val) {
+    onUpdateDay(node.id, date, field, val)
   }
 
   return (
@@ -155,43 +168,28 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay, onMetricsChan
 
                 {showLeftInput && (
                   <td className="border-b border-slate-100 px-0.5 py-1">
-                    <input
-                      type="number" min={0}
-                      className={`w-full text-center rounded px-0.5 py-0.5 md:px-1 outline-none text-[10px] md:text-sm
-                        ${entry?.manualLeft
-                          ? 'bg-white/70 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
-                          : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
-                      value={entry?.leftPv || ''}
-                      onChange={(e) => handleInput(day.date, 'leftPv', e.target.value)}
-                      placeholder="0"
+                    <PVInput 
+                      value={entry?.leftPv} 
+                      manualFlag={entry?.manualLeft} 
+                      onCommit={(val) => handleCommit(day.date, 'leftPv', val)} 
                     />
                   </td>
                 )}
                 {showRightInput && (
                   <td className="border-b border-slate-100 px-0.5 py-1">
-                    <input
-                      type="number" min={0}
-                      className={`w-full text-center rounded px-0.5 py-0.5 md:px-1 outline-none text-[10px] md:text-sm
-                        ${entry?.manualRight
-                          ? 'bg-white/70 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
-                          : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
-                      value={entry?.rightPv || ''}
-                      onChange={(e) => handleInput(day.date, 'rightPv', e.target.value)}
-                      placeholder="0"
+                    <PVInput 
+                      value={entry?.rightPv} 
+                      manualFlag={entry?.manualRight} 
+                      onCommit={(val) => handleCommit(day.date, 'rightPv', val)} 
                     />
                   </td>
                 )}
                 {showBodyInput && (
                   <td className="border-b border-slate-100 px-0.5 py-1">
-                    <input
-                      type="number" min={0}
-                      className={`w-full text-center rounded px-0.5 py-0.5 md:px-1 outline-none text-[10px] md:text-sm
-                        ${entry?.manualBody
-                          ? 'bg-white/70 border-2 border-amber-400 text-amber-800 font-semibold focus:border-amber-500'
-                          : 'bg-white/70 border border-slate-200 focus:border-sky-400'}`}
-                      value={entry?.bodyPv || ''}
-                      onChange={(e) => handleInput(day.date, 'bodyPv', e.target.value)}
-                      placeholder="0"
+                    <PVInput 
+                      value={entry?.bodyPv} 
+                      manualFlag={entry?.manualBody} 
+                      onCommit={(val) => handleCommit(day.date, 'bodyPv', val)} 
                     />
                   </td>
                 )}

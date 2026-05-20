@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useStore } from './store/useStore.js'
 import Header from './components/Header.jsx'
 import PeriodSelector from './components/PeriodSelector.jsx'
@@ -7,6 +7,7 @@ import RankTable from './components/RankTable.jsx'
 import CommissionSummary from './components/CommissionSummary.jsx'
 import ExportButtons from './components/ExportButtons.jsx'
 import { runOptimization } from './engine/optimizer.js'
+import { computeNodeSimulation } from './engine/rollup.js' // 전체 노드 연쇄 반응 계산용
 import { Settings2 } from 'lucide-react'
 
 const RANK_BADGE_CLASS = {
@@ -30,41 +31,74 @@ export default function App() {
   const loadTreeInputRef = useRef(null)
   const rankPrintAreaRef = useRef(null)
 
-  // --- 스낵바 및 되돌리기 상태 관리 시작 ---
-  const [snackbar, setSnackbar] = useState({ isOpen: false, nodeName: '', oldScore: 0, newScore: 0, oldCnt: 0, newCnt: 0 })
+  // --- 연쇄 반응 스낵바 및 되돌리기 상태 관리 ---
+  const [snackbar, setSnackbar] = useState({ isOpen: false, changes: [] })
   const undoStateRef = useRef(null)
+  const beforeMetricsRef = useRef(null)
   const isManualAction = useRef(false)
-  const snackbarTimer = useRef(null)
 
-  // 입력 발생 직전 상태 백업
+  // 1. 특정 시점의 모든 노드 점수/매칭 횟수 계산 함수
+  const calculateAllNodesMetrics = (currentNodes) => {
+    const metrics = {}
+    currentNodes.forEach(n => {
+      const simDays = computeNodeSimulation(n.id, currentNodes)
+      const score = simDays.reduce((s, d) => s + (d.score || 0), 0)
+      const match = simDays.reduce((s, d) => s + (d.score > 0 ? 1 : 0), 0)
+      metrics[n.id] = { name: n.name, score, match }
+    })
+    return metrics
+  }
+
+  // 2. 사용자가 엔터/포커스아웃으로 값을 확정(Commit)했을 때
   const handleUpdateDayWithUndo = (nodeId, date, field, val) => {
+    // 변경 전 전체 조직도 상태와 수당 결과를 백업
+    undoStateRef.current = JSON.parse(JSON.stringify(state))
+    beforeMetricsRef.current = calculateAllNodesMetrics(state.nodes)
     isManualAction.current = true
-    undoStateRef.current = JSON.parse(JSON.stringify(state)) 
+
+    // 값 업데이트 (store 변경)
     updateDay(nodeId, date, field, val)
   }
 
-  // 변화 감지 시 스낵바 노출
-  const handleMetricsChange = (nodeName, oldScore, newScore, oldCnt, newCnt) => {
-    if (!isManualAction.current) return
-    
-    setSnackbar({ isOpen: true, nodeName, oldScore, newScore, oldCnt, newCnt })
-    isManualAction.current = false
+  // 3. store(nodes)가 변경된 직후 연쇄 반응 결과를 비교
+  useEffect(() => {
+    if (isManualAction.current && beforeMetricsRef.current) {
+      const afterMetrics = calculateAllNodesMetrics(nodes)
+      const detectedChanges = []
 
-    if (snackbarTimer.current) clearTimeout(snackbarTimer.current)
-    snackbarTimer.current = setTimeout(() => {
-      setSnackbar(prev => ({ ...prev, isOpen: false }))
-    }, 5000)
-  }
+      // 백업해둔 이전 점수와 현재 점수를 비교하여 바뀐 노드만 추출
+      nodes.forEach(node => {
+        const before = beforeMetricsRef.current[node.id]
+        const after = afterMetrics[node.id]
+        
+        if (before && (before.score !== after.score || before.match !== after.match)) {
+          detectedChanges.push({
+            name: node.name,
+            oldScore: before.score, newScore: after.score,
+            oldMatch: before.match, newMatch: after.match
+          })
+        }
+      })
 
-  // 되돌리기 실행
+      // 변경된 사항이 하나라도 있으면 스낵바 오픈 (자동 닫힘 없음)
+      if (detectedChanges.length > 0) {
+        setSnackbar({ isOpen: true, changes: detectedChanges })
+      }
+
+      isManualAction.current = false
+      beforeMetricsRef.current = null
+    }
+  }, [nodes])
+
+  // 4. 되돌리기 실행
   const handleUndo = () => {
     if (undoStateRef.current) {
       loadState(undoStateRef.current)
-      setSnackbar(prev => ({ ...prev, isOpen: false }))
+      setSnackbar({ isOpen: false, changes: [] })
       undoStateRef.current = null
     }
   }
-  // --- 스낵바 및 되돌리기 상태 관리 끝 ---
+  // --- 스낵바 및 되돌리기 끝 ---
 
   async function handleSaveRankTableImage() {
     const el = rankPrintAreaRef.current
@@ -236,11 +270,11 @@ export default function App() {
                     </div>
                   )}
                 </div>
+                {/* onUpdateDay를 오버라이딩하여 연쇄 반응 계산 로직 연결 */}
                 <RankTable 
                   nodeId={selectedNodeId} 
                   allNodes={nodes} 
-                  onUpdateDay={handleUpdateDayWithUndo} 
-                  onMetricsChange={handleMetricsChange}
+                  onUpdateDay={handleUpdateDayWithUndo}
                 />
               </div>
               <ExportButtons
@@ -260,36 +294,51 @@ export default function App() {
         </main>
       </div>
 
-      {/* 스낵바 UI 알림창 */}
-      {snackbar.isOpen && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-4 rounded-xl bg-slate-800/95 px-5 py-3.5 text-white shadow-2xl backdrop-blur-sm border border-slate-700 animate-in fade-in slide-in-from-bottom-4">
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-sky-400 mb-0.5">[{snackbar.nodeName}] 수당 결과 변경</span>
-            <span className="text-sm font-medium">
-              점수: <span className="text-slate-300">{snackbar.oldScore}점</span> → <span className="text-green-400 font-bold">{snackbar.newScore}점</span>
-              <span className="mx-2 text-slate-600">|</span>
-              매칭: <span className="text-slate-300">{snackbar.oldCnt}회</span> → <span className="text-green-400 font-bold">{snackbar.newCnt}회</span>
+      {/* 연쇄 반응 스낵바 (사용자가 직접 닫기 전까지 유지) */}
+      {snackbar.isOpen && snackbar.changes.length > 0 && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-3 rounded-xl bg-slate-800/95 px-5 py-4 text-white shadow-2xl backdrop-blur-sm border border-slate-700 animate-in fade-in slide-in-from-bottom-4 w-[90%] md:w-[450px] max-h-[50vh]">
+          
+          {/* 헤더 부분 */}
+          <div className="flex items-center justify-between border-b border-slate-600 pb-2">
+            <span className="text-sm font-bold text-sky-400">
+              ⚡ 수당 연쇄 반응 (총 {snackbar.changes.length}건)
             </span>
+            <button 
+              onClick={() => setSnackbar({ isOpen: false, changes: [] })} 
+              className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded-full transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
           
-          <div className="h-8 w-px bg-slate-600 mx-1"></div>
-          
-          <button
-            onClick={handleUndo}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-700/50 px-3 py-1.5 text-sm font-medium text-amber-400 hover:bg-slate-700 hover:text-amber-300 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-            </svg>
-            되돌리기
-          </button>
-          
-          <button 
-            onClick={() => setSnackbar(s => ({ ...s, isOpen: false }))} 
-            className="ml-1 p-1 text-slate-400 hover:text-white"
-          >
-            ✕
-          </button>
+          {/* 변경된 노드 리스트 (여러 개일 경우 스크롤) */}
+          <div className="flex flex-col gap-2 overflow-y-auto pr-1 custom-scrollbar">
+            {snackbar.changes.map((change, idx) => (
+              <div key={idx} className="flex flex-col bg-slate-700/50 rounded px-3 py-2 text-sm border border-slate-600/50">
+                <span className="font-bold text-amber-300 mb-1">[{change.name}]</span>
+                <div className="flex items-center gap-1.5 text-xs sm:text-sm">
+                  <span>점수: <span className="text-slate-300">{change.oldScore}</span> <span className="text-slate-500">→</span> <span className="text-green-400 font-bold">{change.newScore}</span></span>
+                  <span className="text-slate-500 mx-1">|</span>
+                  <span>매칭: <span className="text-slate-300">{change.oldMatch}</span> <span className="text-slate-500">→</span> <span className="text-green-400 font-bold">{change.newMatch}</span></span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 하단 되돌리기 버튼 */}
+          <div className="border-t border-slate-600 pt-3 flex justify-end">
+            <button
+              onClick={handleUndo}
+              className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-amber-400 hover:bg-slate-600 hover:text-amber-300 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              입력 되돌리기
+            </button>
+          </div>
         </div>
       )}
     </div>
