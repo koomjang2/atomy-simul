@@ -80,12 +80,12 @@ function EditableName({ name, onChange, summary }) {
       <Pencil size={8} className="opacity-0 group-hover/name:opacity-40 flex-shrink-0" />
       <div className="pointer-events-none absolute z-[9999] hidden group-hover/name:block top-full mt-1 left-1/2 -translate-x-1/2">
         <div className="rounded-md border border-sky-200 bg-white shadow-xl px-2 py-1.5 text-[10px] text-gray-700 min-w-[170px] text-left">
-          <div className="font-semibold text-sky-700 mb-0.5">예상 오버뷰</div>
+          <div className="text-xs font-bold text-blue-700 mb-1.5">예상 오버뷰</div>
           <ul className="space-y-0.5">
             <li>• 예상수당: {summary.totalCommission.toLocaleString()}원</li>
             <li>• 총 점수: {summary.totalScore}점</li>
             <li>• 총 매칭: {summary.totalMatch}회</li>
-            <li>
+            <li className="text-xs font-bold text-sky-700">
               • {SCORE_TIERS.map((tier) => (
                 summary.tierCounts[tier.score] > 0
                   ? `${tier.score}점 ${summary.tierCounts[tier.score]}회`

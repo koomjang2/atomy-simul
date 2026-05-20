@@ -33,6 +33,7 @@ export default function App() {
 
   // --- 연쇄 반응 스낵바 및 되돌리기 상태 관리 ---
   const [snackbar, setSnackbar] = useState({ isOpen: false, changes: [] })
+  const [hasUndo, setHasUndo] = useState(false) // 🔴 추가: 되돌리기 활성화 상태 관리
   const undoStateRef = useRef(null)
   const beforeMetricsRef = useRef(null)
   const isManualAction = useRef(false)
@@ -53,6 +54,7 @@ export default function App() {
   const handleUpdateDayWithUndo = (nodeId, date, field, val) => {
     // 변경 전 전체 조직도 상태와 수당 결과를 백업
     undoStateRef.current = JSON.parse(JSON.stringify(state))
+    setHasUndo(true) // 🔴 추가: 되돌리기 버튼 활성화
     beforeMetricsRef.current = calculateAllNodesMetrics(state.nodes)
     isManualAction.current = true
 
@@ -96,7 +98,27 @@ export default function App() {
       loadState(undoStateRef.current)
       setSnackbar({ isOpen: false, changes: [] })
       undoStateRef.current = null
+      setHasUndo(false) // 🔴 추가: 되돌리기 완료 후 버튼 비활성화
     }
+  }
+  
+  // 5. 🔴 새로 추가된 로직: 수동 입력값을 지우고 자동 최적화 상태로 덮어쓰기
+  const handleResetToOptimize = () => {
+    // 만약을 위해 이 작업도 '되돌리기'가 가능하도록 백업
+    undoStateRef.current = JSON.parse(JSON.stringify(state));
+    setHasUndo(true);
+    setSnackbar({ isOpen: false, changes: [] }); // 열려있는 스낵바 닫기
+
+    // nodes를 깊은 복사하여 해당 노드의 수동 기록(days)을 완전히 날림
+    const tempNodes = JSON.parse(JSON.stringify(nodes));
+    const targetNode = tempNodes.find(n => n.id === selectedNodeId);
+    if (targetNode) {
+      targetNode.days = []; 
+    }
+
+    // 수동 기록이 초기화된 상태를 기준으로 자동 최적화 재계산 후 적용
+    const optimizedNodes = runOptimization(tempNodes, year, month, half);
+    applyOptimization(optimizedNodes);
   }
   // --- 스낵바 및 되돌리기 끝 ---
 
@@ -277,11 +299,15 @@ export default function App() {
                   onUpdateDay={handleUpdateDayWithUndo}
                 />
               </div>
+              
+              {/* 🔴 수정됨: ExportButtons에 onResetToOptimize, onUndo, hasUndo를 전달합니다. */}
               <ExportButtons
                 nodes={nodes}
                 selectedNode={selectedNode}
-                onResetDays={() => resetNodeDays(selectedNodeId)}
+                onResetToOptimize={handleResetToOptimize} 
                 onSaveImage={handleSaveRankTableImage}
+                onUndo={handleUndo}
+                hasUndo={hasUndo}
               />
               <CommissionSummary nodes={nodes} />
             </>
