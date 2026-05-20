@@ -420,6 +420,7 @@ export default function OrgTreePanel({
   const roots = nodes.filter((n) => !n.parentId)
   const treePrintRef = useRef(null)
   const treeInnerRef = useRef(null)
+  const panLayerRef = useRef(null)
 
   async function handleSaveTreeImage() {
     const container = treePrintRef.current
@@ -476,9 +477,20 @@ export default function OrgTreePanel({
     return () => window.removeEventListener('print-org-tree', handlePrintEvent)
   }, [])
 
-  // --- 빈 바탕 드래그 팬: 마우스 이동의 반대 방향으로 트리가 따라오도록 스크롤 ---
-  // (사용자 요구: 마우스↑ → 트리↓, 마우스← → 트리→)
-  const dragRef = useRef({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 })
+  // --- 빈 바탕 드래그 팬: transform 기반 (오버플로 유무와 무관하게 작동) ---
+  // 사용자 요구: 마우스↑ → 트리↓, 마우스← → 트리→ (스크롤바 푸시 방식)
+  const dragRef = useRef({
+    active: false,
+    startX: 0, startY: 0,
+    panStartX: 0, panStartY: 0,
+    panX: 0, panY: 0,
+  })
+
+  function applyPanTransform() {
+    if (!panLayerRef.current) return
+    const { panX, panY } = dragRef.current
+    panLayerRef.current.style.transform = `translate(${panX}px, ${panY}px)`
+  }
 
   function isPanStart(target) {
     if (!target) return false
@@ -491,14 +503,13 @@ export default function OrgTreePanel({
     if (!isPanStart(e.target)) return
     const container = treePrintRef.current
     if (!container) return
-    dragRef.current = {
-      active: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      scrollLeft: container.scrollLeft,
-      scrollTop: container.scrollTop,
-    }
-    container.style.cursor = 'grabbing'
+    const s = dragRef.current
+    s.active = true
+    s.startX = e.clientX
+    s.startY = e.clientY
+    s.panStartX = s.panX
+    s.panStartY = s.panY
+    container.classList.add('is-panning')
     e.preventDefault()
   }
 
@@ -506,19 +517,20 @@ export default function OrgTreePanel({
     function onMove(e) {
       const s = dragRef.current
       if (!s.active) return
-      const container = treePrintRef.current
-      if (!container) return
       const dx = e.clientX - s.startX
       const dy = e.clientY - s.startY
-      // 마우스가 움직인 방향과 같은 부호로 scroll을 이동시키면
-      // 화면(viewport)이 그 방향으로 따라가고, 그 결과 컨텐츠(트리)는 반대 방향으로 이동한다.
-      container.scrollLeft = s.scrollLeft + dx
-      container.scrollTop = s.scrollTop + dy
+      // 사용자 요구: 마우스가 움직인 방향과 반대로 트리가 이동
+      //   마우스↑ (dy<0) → 트리↓ → translateY > 0 → -dy > 0  ✓
+      //   마우스← (dx<0) → 트리→ → translateX > 0 → -dx > 0  ✓
+      s.panX = s.panStartX - dx
+      s.panY = s.panStartY - dy
+      applyPanTransform()
     }
     function onUp() {
-      if (!dragRef.current.active) return
-      dragRef.current.active = false
-      if (treePrintRef.current) treePrintRef.current.style.cursor = ''
+      const s = dragRef.current
+      if (!s.active) return
+      s.active = false
+      if (treePrintRef.current) treePrintRef.current.classList.remove('is-panning')
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
@@ -526,6 +538,21 @@ export default function OrgTreePanel({
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
+  }, [])
+
+  // 휠/트랙패드로도 팬 가능: overflow-hidden 이라 네이티브 스크롤이 안 먹기 때문
+  useEffect(() => {
+    const container = treePrintRef.current
+    if (!container) return
+    function onWheel(e) {
+      e.preventDefault()
+      const s = dragRef.current
+      s.panX -= e.deltaX
+      s.panY -= e.deltaY
+      applyPanTransform()
+    }
+    container.addEventListener('wheel', onWheel, { passive: false })
+    return () => container.removeEventListener('wheel', onWheel)
   }, [])
 
 // OrgTreePanel.jsx의 반환부 수정
@@ -547,23 +574,26 @@ return (
     <div
       ref={treePrintRef}
       onMouseDown={handlePanMouseDown}
-      className="org-tree-print-area overflow-auto flex-1 p-4 bg-slate-50/30 cursor-grab"
+      className="org-tree-print-area org-tree-pan-area overflow-hidden flex-1 p-4 bg-slate-50/30"
     >
-      <div ref={treeInnerRef} className="origin-top transform scale-[0.85] md:scale-100 transition-transform">
-        {roots.map((root) => (
-          <BinaryTreeNode
-            key={root.id}
-            nodeId={root.id}
-            allNodes={nodes}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            onAdd={onAdd}
-            onRemove={onRemove}
-            onChangeRank={onChangeRank}
-            onChangeName={onChangeName}
-            onUpdateNode={onUpdateNode}
-          />
-        ))}
+      {/* 드래그 팬용 레이어 — translate만 담당 */}
+      <div ref={panLayerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px)' }}>
+        <div ref={treeInnerRef} className="origin-top transform scale-[0.85] md:scale-100 transition-transform">
+          {roots.map((root) => (
+            <BinaryTreeNode
+              key={root.id}
+              nodeId={root.id}
+              allNodes={nodes}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              onAdd={onAdd}
+              onRemove={onRemove}
+              onChangeRank={onChangeRank}
+              onChangeName={onChangeName}
+              onUpdateNode={onUpdateNode}
+            />
+          ))}
+        </div>
       </div>
     </div>
   </aside>
