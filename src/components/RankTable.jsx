@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { computeNodeSimulation, getLeftSubtree, getRightSubtree } from '../engine/rollup.js'
 import { checkRank } from '../engine/rankLogic.js'
 import { N_VALUE, SCORE_TIERS } from '../engine/pvRules.js'
@@ -43,7 +43,7 @@ function detectFlashout(simDays) {
   return warnings
 }
 
-export default function RankTable({ nodeId, allNodes, onUpdateDay }) {
+export default function RankTable({ nodeId, allNodes, onUpdateDay, onMetricsChange }) {
   const node = allNodes.find((n) => n.id === nodeId)
 
   const isDMOrAbove = ['DM', 'SRM', 'STM', 'RM', 'CM', 'IM'].includes(node?.rank)
@@ -80,6 +80,32 @@ export default function RankTable({ nodeId, allNodes, onUpdateDay }) {
     node.rank === 'SSM' || node.rank === 'SM'
       ? checkRank(node.rank, periodLeft, periodRight, periodBody)
       : null
+
+  // --- 수동 입력 변화량 감지 로직 시작 ---
+  const prevStats = useRef({ score: null, match: null, nodeId: null })
+
+  useEffect(() => {
+    // 노드 자체가 바뀐 경우는 비교하지 않고 초기값만 세팅
+    if (prevStats.current.nodeId !== node?.id) {
+      prevStats.current = { score: totalScore, match: totalMatch, nodeId: node?.id }
+      return
+    }
+
+    // 점수나 매칭 횟수가 바뀌었을 때만 상위 컴포넌트로 알림
+    if (
+      prevStats.current.score !== null &&
+      (prevStats.current.score !== totalScore || prevStats.current.match !== totalMatch)
+    ) {
+      onMetricsChange?.(
+        node?.name,
+        prevStats.current.score, totalScore,
+        prevStats.current.match, totalMatch
+      )
+    }
+    
+    prevStats.current = { score: totalScore, match: totalMatch, nodeId: node?.id }
+  }, [totalScore, totalMatch, node?.id, node?.name, onMetricsChange])
+  // --- 수동 입력 변화량 감지 로직 끝 ---
 
   function handleInput(date, field, raw) {
     const val = parseInt(raw, 10)
