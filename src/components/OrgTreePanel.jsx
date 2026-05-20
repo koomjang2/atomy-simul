@@ -126,8 +126,9 @@ function NodeCard({ node, isSelected, onSelect, canAddLeft, canAddRight,
   return (
     <div className="relative flex flex-col items-center z-10 hover:z-[500]">
       <div
+        data-tree-node="true"
         className={`
-          relative border-2 rounded-lg px-3 py-1.5 cursor-pointer min-w-[84px] text-center
+          tree-node-card relative border-2 rounded-lg px-3 py-1.5 cursor-pointer min-w-[84px] text-center
           transition-all duration-300 select-none
           shadow-[0_6px_14px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.65)]
           bg-gradient-to-b from-white/65 via-white/20 to-black/5 backdrop-blur-[1px]
@@ -475,6 +476,58 @@ export default function OrgTreePanel({
     return () => window.removeEventListener('print-org-tree', handlePrintEvent)
   }, [])
 
+  // --- 빈 바탕 드래그 팬: 마우스 이동의 반대 방향으로 트리가 따라오도록 스크롤 ---
+  // (사용자 요구: 마우스↑ → 트리↓, 마우스← → 트리→)
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 })
+
+  function isPanStart(target) {
+    if (!target) return false
+    // 인터랙티브 요소(버튼/입력)와 노드 카드 위에서는 팬 시작 안 함 → 빈 바탕만 허용
+    return !target.closest('button, input, select, textarea, .tree-node-card, [data-no-pan]')
+  }
+
+  function handlePanMouseDown(e) {
+    if (e.button !== 0) return
+    if (!isPanStart(e.target)) return
+    const container = treePrintRef.current
+    if (!container) return
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: container.scrollLeft,
+      scrollTop: container.scrollTop,
+    }
+    container.style.cursor = 'grabbing'
+    e.preventDefault()
+  }
+
+  useEffect(() => {
+    function onMove(e) {
+      const s = dragRef.current
+      if (!s.active) return
+      const container = treePrintRef.current
+      if (!container) return
+      const dx = e.clientX - s.startX
+      const dy = e.clientY - s.startY
+      // 마우스가 움직인 방향과 같은 부호로 scroll을 이동시키면
+      // 화면(viewport)이 그 방향으로 따라가고, 그 결과 컨텐츠(트리)는 반대 방향으로 이동한다.
+      container.scrollLeft = s.scrollLeft + dx
+      container.scrollTop = s.scrollTop + dy
+    }
+    function onUp() {
+      if (!dragRef.current.active) return
+      dragRef.current.active = false
+      if (treePrintRef.current) treePrintRef.current.style.cursor = ''
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [])
+
 // OrgTreePanel.jsx의 반환부 수정
 return (
   <aside className="org-tree-panel bg-white border-b md:border-b-0 md:border-r flex flex-col no-print flex-shrink-0 w-full md:w-1/2 lg:w-5/12">
@@ -491,7 +544,11 @@ return (
     </div>
     
     {/* 모바일에서 트리를 80% 크기로 축소하여 표시 */}
-    <div ref={treePrintRef} className="org-tree-print-area overflow-auto flex-1 p-4 bg-slate-50/30">
+    <div
+      ref={treePrintRef}
+      onMouseDown={handlePanMouseDown}
+      className="org-tree-print-area overflow-auto flex-1 p-4 bg-slate-50/30 cursor-grab"
+    >
       <div ref={treeInnerRef} className="origin-top transform scale-[0.85] md:scale-100 transition-transform">
         {roots.map((root) => (
           <BinaryTreeNode
