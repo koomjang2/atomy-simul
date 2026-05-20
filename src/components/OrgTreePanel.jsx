@@ -479,19 +479,45 @@ export default function OrgTreePanel({
     return () => window.removeEventListener('print-org-tree', handlePrintEvent)
   }, [])
 
-  // --- 빈 바탕 드래그 팬: transform 기반 (오버플로 유무와 무관하게 작동) ---
-  // 사용자 요구: 마우스↑ → 트리↓, 마우스← → 트리→ (스크롤바 푸시 방식)
+  // --- 빈 바탕 드래그 팬 + 줌: transform 기반 (translate + scale) ---
+  const ZOOM_MIN = 0.3
+  const ZOOM_MAX = 3
   const dragRef = useRef({
+    // 단일 손가락/마우스 팬 상태
     active: false,
     startX: 0, startY: 0,
     panStartX: 0, panStartY: 0,
-    panX: 0, panY: 0,
+    // 현재 변환 상태
+    panX: 0, panY: 0, zoom: 1,
+    // 핀치 줌 상태 (모바일)
+    pinchActive: false,
+    pinchStartDist: 0,
+    pinchStartZoom: 1,
+    pinchCenterX: 0, pinchCenterY: 0,
+    pinchStartPanX: 0, pinchStartPanY: 0,
   })
 
   function applyPanTransform() {
     if (!panLayerRef.current) return
-    const { panX, panY } = dragRef.current
-    panLayerRef.current.style.transform = `translate(${panX}px, ${panY}px)`
+    const { panX, panY, zoom } = dragRef.current
+    panLayerRef.current.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`
+  }
+
+  // (mx, my)를 화면 고정점으로 두고 zoom 을 oldZoom → newZoom 으로 변경.
+  // pan 의 새 값은: newPan = m - (m - oldPan) * (newZoom / oldZoom)
+  function zoomAtPoint(mx, my, newZoom) {
+    const s = dragRef.current
+    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newZoom))
+    const ratio = clamped / s.zoom
+    s.panX = mx - (mx - s.panX) * ratio
+    s.panY = my - (my - s.panY) * ratio
+    s.zoom = clamped
+  }
+
+  function pointInContainer(clientX, clientY) {
+    const rect = treePrintRef.current?.getBoundingClientRect()
+    if (!rect) return { x: clientX, y: clientY }
+    return { x: clientX - rect.left, y: clientY - rect.top }
   }
 
   function isPanStart(target) {
@@ -550,42 +576,96 @@ export default function OrgTreePanel({
     }
   }, [])
 
-  // 휠/트랙패드로도 팬 가능: overflow-hidden 이라 네이티브 스크롤이 안 먹기 때문
+  // 휠: Ctrl 누르면 줌(마우스 위치 기준), 평소엔 팬
   useEffect(() => {
     const container = treePrintRef.current
     if (!container) return
     function onWheel(e) {
       e.preventDefault()
       const s = dragRef.current
-      s.panX -= e.deltaX
-      s.panY -= e.deltaY
+      if (e.ctrlKey || e.metaKey) {
+        const { x, y } = pointInContainer(e.clientX, e.clientY)
+        // deltaY < 0 : 휠 업 = 확대,  deltaY > 0 : 휠 다운 = 축소
+        const factor = Math.exp(-e.deltaY * 0.0015)
+        zoomAtPoint(x, y, s.zoom * factor)
+      } else {
+        s.panX -= e.deltaX
+        s.panY -= e.deltaY
+      }
       applyPanTransform()
     }
     container.addEventListener('wheel', onWheel, { passive: false })
     return () => container.removeEventListener('wheel', onWheel)
   }, [])
 
-  // 모바일 터치 팬 — touchstart/move/end 를 mousedown/move/up 과 동일 로직으로 처리
-  // passive:false 로 등록해 preventDefault 가 동작하도록 함 (기본 스크롤 차단)
+  // 모바일 터치: 1손가락 팬 + 2손가락 핀치 줌
   useEffect(() => {
     const container = treePrintRef.current
     if (!container) return
 
+    function touchDistance(t1, t2) {
+      const dx = t1.clientX - t2.clientX
+      const dy = t1.clientY - t2.clientY
+      return Math.hypot(dx, dy)
+    }
+
     function onTouchStart(e) {
-      if (e.touches.length !== 1) return
-      const t = e.touches[0]
-      if (!isPanStart(t.target)) return
-      panStart(t.clientX, t.clientY)
-      e.preventDefault()
+      const s = dragRef.current
+      if (e.touches.length === 2) {
+        // 핀치 시작 — 두 손가락 중간점을 줌 고정점으로 사용
+        const [a, b] = [e.touches[0], e.touches[1]]
+        const mx = (a.clientX + b.clientX) / 2
+        const my = (a.clientY + b.clientY) / 2
+        const { x, y } = pointInContainer(mx, my)
+        s.pinchActive = true
+        s.pinchStartDist = touchDistance(a, b)
+        s.pinchStartZoom = s.zoom
+        s.pinchCenterX = x
+        s.pinchCenterY = y
+        s.pinchStartPanX = s.panX
+        s.pinchStartPanY = s.panY
+        // 핀치 시작 시 단일 손가락 팬 상태 해제
+        s.active = false
+        container.classList.remove('is-panning')
+        e.preventDefault()
+        return
+      }
+      if (e.touches.length === 1 && !s.pinchActive) {
+        const t = e.touches[0]
+        if (!isPanStart(t.target)) return
+        panStart(t.clientX, t.clientY)
+        e.preventDefault()
+      }
     }
     function onTouchMove(e) {
-      if (!dragRef.current.active) return
-      if (e.touches.length !== 1) return
-      const t = e.touches[0]
-      panMove(t.clientX, t.clientY)
-      e.preventDefault()
+      const s = dragRef.current
+      if (s.pinchActive && e.touches.length === 2) {
+        const [a, b] = [e.touches[0], e.touches[1]]
+        const newDist = touchDistance(a, b)
+        if (s.pinchStartDist > 0) {
+          const newZoom = s.pinchStartZoom * (newDist / s.pinchStartDist)
+          const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newZoom))
+          const ratio = clamped / s.pinchStartZoom
+          // 핀치 시작 시점의 pan 을 기준으로 고정점 유지
+          s.panX = s.pinchCenterX - (s.pinchCenterX - s.pinchStartPanX) * ratio
+          s.panY = s.pinchCenterY - (s.pinchCenterY - s.pinchStartPanY) * ratio
+          s.zoom = clamped
+          applyPanTransform()
+        }
+        e.preventDefault()
+        return
+      }
+      if (s.active && e.touches.length === 1) {
+        const t = e.touches[0]
+        panMove(t.clientX, t.clientY)
+        e.preventDefault()
+      }
     }
-    function onTouchEnd() { panEnd() }
+    function onTouchEnd(e) {
+      const s = dragRef.current
+      if (e.touches.length < 2) s.pinchActive = false
+      if (e.touches.length === 0) panEnd()
+    }
 
     container.addEventListener('touchstart', onTouchStart, { passive: false })
     container.addEventListener('touchmove',  onTouchMove,  { passive: false })
@@ -620,8 +700,12 @@ return (
       onMouseDown={handlePanMouseDown}
       className="org-tree-print-area org-tree-pan-area overflow-hidden flex-1 p-4 bg-slate-50/30"
     >
-      {/* 드래그 팬용 레이어 — translate만 담당 */}
-      <div ref={panLayerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px)' }}>
+      {/* 드래그 팬 + 줌 레이어 — translate + scale 결합. 좌상단 기준 origin 으로 zoom 수식이 단순. */}
+      <div
+        ref={panLayerRef}
+        className="will-change-transform"
+        style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}
+      >
         <div ref={treeInnerRef} className="origin-top transform scale-[0.85] md:scale-100 transition-transform">
           {roots.map((root) => (
             <BinaryTreeNode
