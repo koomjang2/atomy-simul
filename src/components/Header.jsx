@@ -7,10 +7,10 @@ export default function Header() {
         className="h-7 md:h-9 w-auto object-contain"
       />
       <span className="text-base md:text-lg font-bold" style={{ color: 'rgb(0, 181, 239)' }}>
-        서울최고센터 직급표 시뮬레이터
+        직급 계획표 시뮬레이터
       </span>
-      <span className="text-[10px] md:text-xs ml-auto md:ml-1" style={{ color: 'rgb(0, 181, 239)' }}>
-        바이너리 수당 최적화
+      <span className="text-[10px] md:text-xs font-semibold px-1.5 py-0.5 rounded border border-sky-300 bg-sky-50 text-sky-600">
+        BETA
       </span>
     </header>
   )
