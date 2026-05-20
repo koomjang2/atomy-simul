@@ -31,6 +31,12 @@
   .print-only { display: block !important; }
 
   /* 조직트리 인쇄 모드 */
+  body.print-org-tree-mode,
+  body.print-org-tree-mode * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   body.print-org-tree-mode * { visibility: hidden !important; }
 
   body.print-org-tree-mode .org-tree-panel.no-print {
@@ -42,6 +48,7 @@
     width: max-content !important;
     height: auto !important;
     overflow: visible !important;
+    border: none !important;
   }
   body.print-org-tree-mode .org-tree-panel.no-print > *:first-child {
     display: none !important;
@@ -63,5 +70,21 @@
     transform: none !important;
   }
 
-  @page { size: auto; margin: 8mm; }
+  /* NodeCard 가독성 확보 — 그라데이션/blur/그림자 제거하고 단색 배경 사용 */
+  body.print-org-tree-mode .org-tree-print-area * {
+    background-image: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+  /* hover로만 보이던 보조 UI(연필 아이콘 등) 숨김 */
+  body.print-org-tree-mode .org-tree-print-area .opacity-0 {
+    display: none !important;
+  }
+
+  /* 큰 트리를 한 페이지에 담기 위해 가로 방향 사용 */
+  @page { size: A4 landscape; margin: 8mm; }
 }
