@@ -139,14 +139,36 @@ function NodeCard({ node, isSelected, onSelect, canAddLeft, canAddRight,
         `}
         onClick={() => onSelect()}
       >
-        <button
-          className="flex items-center gap-0.5 mx-auto text-xs font-bold underline decoration-dotted hover:opacity-70"
-          onClick={(e) => { e.stopPropagation(); setShowRankMenu(!showRankMenu) }}
-          title="클릭하여 직급 변경"
-        >
-          {node.rank}
-          <ChevronDown size={9} />
-        </button>
+        <div className="relative inline-block">
+          <button
+            className="flex items-center gap-0.5 mx-auto text-xs font-bold underline decoration-dotted hover:opacity-70"
+            onClick={(e) => { e.stopPropagation(); setShowRankMenu(!showRankMenu) }}
+            title="클릭하여 직급 변경"
+          >
+            {node.rank}
+            <ChevronDown size={9} />
+          </button>
+
+          {showRankMenu && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-[100] bg-white border rounded-lg shadow-xl py-1 min-w-[72px]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {ALL_RANKS.map((r) => (
+                <button
+                  key={r}
+                  className={`w-full flex items-center gap-1 px-3 py-1 text-xs hover:bg-gray-100
+                              ${node.rank === r ? 'font-bold text-blue-600' : 'text-gray-700'}`}
+                  onClick={() => { onChangeRank(r); setShowRankMenu(false) }}
+                >
+                  {node.rank === r && <Check size={10} />}
+                  {node.rank !== r && <span className="w-2.5" />}
+                  {r}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <EditableName
           name={node.name}
@@ -204,26 +226,6 @@ function NodeCard({ node, isSelected, onSelect, canAddLeft, canAddRight,
               />
             </label>
           </div>
-        </div>
-      )}
-
-      {showRankMenu && (
-        <div
-          className="absolute top-full mt-1 z-50 bg-white border rounded-lg shadow-xl py-1 min-w-[72px]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {ALL_RANKS.map((r) => (
-            <button
-              key={r}
-              className={`w-full flex items-center gap-1 px-3 py-1 text-xs hover:bg-gray-100
-                          ${node.rank === r ? 'font-bold text-blue-600' : 'text-gray-700'}`}
-              onClick={() => { onChangeRank(r); setShowRankMenu(false) }}
-            >
-              {node.rank === r && <Check size={10} />}
-              {node.rank !== r && <span className="w-2.5" />}
-              {r}
-            </button>
-          ))}
         </div>
       )}
 
@@ -501,36 +503,45 @@ export default function OrgTreePanel({
   function handlePanMouseDown(e) {
     if (e.button !== 0) return
     if (!isPanStart(e.target)) return
-    const container = treePrintRef.current
-    if (!container) return
+    panStart(e.clientX, e.clientY)
+    e.preventDefault()
+  }
+
+  function panStart(clientX, clientY) {
     const s = dragRef.current
     s.active = true
-    s.startX = e.clientX
-    s.startY = e.clientY
+    s.startX = clientX
+    s.startY = clientY
     s.panStartX = s.panX
     s.panStartY = s.panY
-    container.classList.add('is-panning')
-    e.preventDefault()
+    if (treePrintRef.current) treePrintRef.current.classList.add('is-panning')
+  }
+
+  function panMove(clientX, clientY) {
+    const s = dragRef.current
+    if (!s.active) return
+    const dx = clientX - s.startX
+    const dy = clientY - s.startY
+    // 사용자 요구: 마우스 이동 방향과 반대로 트리 이동 (스크롤바 푸시)
+    //   2026-05-21 부호 뒤집음: 직전 -dx/-dy 가 의도와 반대로 동작한다는 사용자 피드백
+    s.panX = s.panStartX + dx
+    s.panY = s.panStartY + dy
+    applyPanTransform()
+  }
+
+  function panEnd() {
+    const s = dragRef.current
+    if (!s.active) return
+    s.active = false
+    if (treePrintRef.current) treePrintRef.current.classList.remove('is-panning')
   }
 
   useEffect(() => {
     function onMove(e) {
-      const s = dragRef.current
-      if (!s.active) return
-      const dx = e.clientX - s.startX
-      const dy = e.clientY - s.startY
-      // 사용자 요구: 마우스 이동 방향과 반대로 트리 이동 (스크롤바 푸시)
-      //   2026-05-21 부호 뒤집음: 직전 -dx/-dy 가 의도와 반대로 동작한다는 사용자 피드백
-      s.panX = s.panStartX + dx
-      s.panY = s.panStartY + dy
-      applyPanTransform()
+      if (!dragRef.current.active) return
+      panMove(e.clientX, e.clientY)
     }
-    function onUp() {
-      const s = dragRef.current
-      if (!s.active) return
-      s.active = false
-      if (treePrintRef.current) treePrintRef.current.classList.remove('is-panning')
-    }
+    function onUp() { panEnd() }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => {
@@ -552,6 +563,40 @@ export default function OrgTreePanel({
     }
     container.addEventListener('wheel', onWheel, { passive: false })
     return () => container.removeEventListener('wheel', onWheel)
+  }, [])
+
+  // 모바일 터치 팬 — touchstart/move/end 를 mousedown/move/up 과 동일 로직으로 처리
+  // passive:false 로 등록해 preventDefault 가 동작하도록 함 (기본 스크롤 차단)
+  useEffect(() => {
+    const container = treePrintRef.current
+    if (!container) return
+
+    function onTouchStart(e) {
+      if (e.touches.length !== 1) return
+      const t = e.touches[0]
+      if (!isPanStart(t.target)) return
+      panStart(t.clientX, t.clientY)
+      e.preventDefault()
+    }
+    function onTouchMove(e) {
+      if (!dragRef.current.active) return
+      if (e.touches.length !== 1) return
+      const t = e.touches[0]
+      panMove(t.clientX, t.clientY)
+      e.preventDefault()
+    }
+    function onTouchEnd() { panEnd() }
+
+    container.addEventListener('touchstart', onTouchStart, { passive: false })
+    container.addEventListener('touchmove',  onTouchMove,  { passive: false })
+    container.addEventListener('touchend',   onTouchEnd)
+    container.addEventListener('touchcancel', onTouchEnd)
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart)
+      container.removeEventListener('touchmove',  onTouchMove)
+      container.removeEventListener('touchend',   onTouchEnd)
+      container.removeEventListener('touchcancel', onTouchEnd)
+    }
   }, [])
 
 // OrgTreePanel.jsx의 반환부 수정
